@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import type { MortgagePayment } from '@/lib/mortgage/types';
+import { readJson } from '@/lib/utils/http';
 
 interface MortgageHistoryTableProps {
   payments: MortgagePayment[];
@@ -84,7 +85,7 @@ export default function MortgageHistoryTable({
       const res = await fetch(`/api/mortgage/payments/${payment.id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await readJson(res);
 
       if (!res.ok) {
         throw new Error(data.error || 'ลบรายการไม่สำเร็จ');

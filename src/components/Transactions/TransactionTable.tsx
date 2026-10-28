@@ -20,6 +20,7 @@ import {
   CopyCheck,
 } from 'lucide-react';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
+import { readJson } from '@/lib/utils/http';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -126,7 +127,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       const res = await fetch(`/api/transactions?id=${encodeURIComponent(tx.id)}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to delete transaction');
       }
@@ -169,7 +170,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         }),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to update note');
       }
@@ -210,7 +211,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         }),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to update transaction');
       }
@@ -241,7 +242,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     setIsDeduplicating(true);
     try {
       const res = await fetch('/api/transactions/deduplicate', { method: 'POST' });
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to deduplicate');
       alert(data.message || 'ลบรายการซ้ำเรียบร้อยแล้ว');
       if (onRefresh) onRefresh();

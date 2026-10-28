@@ -20,6 +20,7 @@ import {
 import type { TaxDeductions, TaxCalculationResult } from '@/lib/tax/tax-types';
 import type { GhbReceipt } from '@/lib/ghb/sync';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
+import { readJson } from '@/lib/utils/http';
 
 interface TaxDeductionsFormProps {
   deductions: TaxDeductions;
@@ -59,7 +60,7 @@ export default function TaxDeductionsForm({
     setGhbMessage(null);
     try {
       const res = await fetch(`/api/tax/ghb?year=${year}`);
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'ไม่สามารถดึงข้อมูลได้');
       }

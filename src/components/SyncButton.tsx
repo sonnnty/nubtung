@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { readJson } from '@/lib/utils/http';
 
 interface SyncButtonProps {
   onSyncComplete?: () => void;
@@ -27,7 +28,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       // 1. Sync Slips first
       setStatusText('กำลังสแกนสลิป...');
       const slipRes = await fetch('/api/sync', { method: 'POST' });
-      const slipData = await slipRes.json();
+      const slipData = await readJson(slipRes);
 
       if (!slipRes.ok) {
         throw new Error(slipData.error || 'Slip sync failed');
@@ -36,7 +37,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       // 2. Sync Statements next
       setStatusText('กำลังกระทบยอด Statement...');
       const stmRes = await fetch('/api/statements/sync', { method: 'POST' });
-      const stmData = await stmRes.json();
+      const stmData = await readJson(stmRes);
 
       if (!stmRes.ok) {
         throw new Error(stmData.error || 'Statement sync failed');

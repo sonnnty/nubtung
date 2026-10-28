@@ -17,6 +17,7 @@ import MortgageHistoryTable from './MortgageHistoryTable';
 import ManualPaymentModal from './ManualPaymentModal';
 import { DEFAULT_INTEREST_CONFIG } from '@/lib/mortgage/types';
 import type { MortgageSummary, MortgagePayment } from '@/lib/mortgage/types';
+import { readJson } from '@/lib/utils/http';
 
 type AccountTab = 'ALL' | '011690010474' | '011690010482';
 
@@ -38,7 +39,7 @@ export default function MortgageDashboard() {
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch('/api/mortgage');
-      const data = await res.json();
+      const data = await readJson(res);
 
       if (data.success) {
         setSummary(data.summary);
@@ -58,7 +59,7 @@ export default function MortgageDashboard() {
     (async () => {
       try {
         const res = await fetch('/api/mortgage');
-        const data = await res.json();
+        const data = await readJson(res);
         if (!ignore && data.success) {
           setSummary(data.summary);
           setPayments(data.payments || []);
@@ -84,7 +85,7 @@ export default function MortgageDashboard() {
 
     try {
       const res = await fetch('/api/mortgage/sync', { method: 'POST' });
-      const data = await res.json();
+      const data = await readJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'การซิงค์ข้อมูลจากอีเมลล้มเหลว');

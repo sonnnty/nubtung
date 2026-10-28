@@ -33,6 +33,7 @@ import {
   Info,
   X,
 } from 'lucide-react';
+import { readJson } from '@/lib/utils/http';
 
 interface NotificationState {
   type: 'success' | 'error' | 'info';
@@ -143,7 +144,7 @@ export default function TaxPage() {
         let data: TaxApiResponse | null = null;
 
         try {
-          data = await res.json();
+          data = await readJson(res);
         } catch {
           // Response was not JSON (e.g. HTML 500/502 page)
         }
@@ -238,7 +239,7 @@ export default function TaxPage() {
 
         let data: { success?: boolean; error?: string } | null = null;
         try {
-          data = await res.json();
+          data = await readJson(res);
         } catch {
           // Ignore
         }
@@ -270,7 +271,7 @@ export default function TaxPage() {
       let data: TaxApiResponse | null = null;
 
       try {
-        data = await res.json();
+        data = await readJson(res);
       } catch {
         // Non-JSON response
       }
@@ -336,7 +337,7 @@ export default function TaxPage() {
 
       let data: { success?: boolean; error?: string } | null = null;
       try {
-        data = await res.json();
+        data = await readJson(res);
       } catch {
         // Non-JSON response
       }

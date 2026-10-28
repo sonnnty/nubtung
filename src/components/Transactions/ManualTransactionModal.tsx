@@ -5,6 +5,7 @@ import { Plus, X, Upload, RefreshCw } from 'lucide-react';
 import { TransactionType } from '@/types';
 import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
+import { readJson } from '@/lib/utils/http';
 
 interface ManualTransactionModalProps {
   onSuccess: () => void;
@@ -79,7 +80,7 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to upload slip');
 
       const slip = data.slip;
@@ -132,7 +133,7 @@ export default function ManualTransactionModal({ onSuccess, isMobileFab = false 
         }),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to record transaction');
       }

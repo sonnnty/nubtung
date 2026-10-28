@@ -6,6 +6,7 @@ import MobileBottomNav from '@/components/MobileBottomNav';
 import TransactionTable from '@/components/Transactions/TransactionTable';
 import ManualTransactionModal from '@/components/Transactions/ManualTransactionModal';
 import { Transaction } from '@/types';
+import { readJson } from '@/lib/utils/http';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -17,7 +18,7 @@ export default function TransactionsPage() {
     setError(null);
     try {
       const res = await fetch('/api/transactions');
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch transactions');
       }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X, Building2, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { getBangkokDateString } from '@/lib/utils/date';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
+import { readJson } from '@/lib/utils/http';
 
 interface ManualPaymentModalProps {
   isOpen?: boolean;
@@ -115,7 +116,7 @@ export default function ManualPaymentModal({
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'บันทึกรายการไม่สำเร็จ');
       }

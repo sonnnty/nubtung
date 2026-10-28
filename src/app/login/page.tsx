@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Lock, User, ArrowRight } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { readJson } from '@/lib/utils/http';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
       }

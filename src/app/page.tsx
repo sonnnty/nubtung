@@ -17,6 +17,7 @@ import {
   ListOrdered,
   Info,
 } from 'lucide-react';
+import { readJson } from '@/lib/utils/http';
 
 const THAI_MONTHS = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -39,7 +40,7 @@ export default function DashboardPage() {
     setError(null);
     try {
       const res = await fetch('/api/transactions');
-      const data = await res.json();
+      const data = await readJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch transactions');
       }
