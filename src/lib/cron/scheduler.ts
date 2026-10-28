@@ -1,6 +1,5 @@
 let syncIntervalTimer: NodeJS.Timeout | null = null;
 let emailSyncTimer: NodeJS.Timeout | null = null;
-let isSyncRunning = false;
 let isEmailSyncRunning = false;
 
 /**
@@ -108,6 +107,28 @@ export function startDailyEmailSyncScheduler(targetHour: number = 4) {
 }
 
 /**
+ * Runs a full sync through the shared job lock, so it never overlaps a sync started from the
+ * sync button or /api/cron/sync.
+ */
+async function runScheduledSync(trigger: 'scheduled' | 'startup') {
+  try {
+    const { startFullSyncJob, FULL_SYNC_JOB } = await import('@/lib/sync/runner');
+    const { getRunningJob, waitForJob } = await import('@/lib/sync/jobs');
+    if (getRunningJob(FULL_SYNC_JOB)) {
+      console.log(`[Scheduler] A sync is already running, skipping ${trigger} sync...`);
+      return;
+    }
+    console.log(`[Scheduler] Running ${trigger} sync...`);
+    const job = await waitForJob(startFullSyncJob().id);
+    if (job?.status === 'error') {
+      console.error(`[Scheduler] Error during ${trigger} sync:`, job.error);
+    }
+  } catch (err: any) {
+    console.error(`[Scheduler] Error during ${trigger} sync:`, err.message);
+  }
+}
+
+/**
  * Initializes Background Auto-Sync for Slips, Statements, and Daily GH Bank Receipts.
  */
 export function startBackgroundSyncScheduler() {
@@ -128,37 +149,10 @@ export function startBackgroundSyncScheduler() {
   }
 
   // Periodic background execution for Slips and Statements
-  syncIntervalTimer = setInterval(async () => {
-    if (isSyncRunning) {
-      console.log('[Scheduler] Previous sync is still running, skipping tick...');
-      return;
-    }
-
-    isSyncRunning = true;
-    try {
-      const { executeFullSync } = await import('@/lib/sync/runner');
-      await executeFullSync();
-    } catch (err: any) {
-      console.error('[Scheduler] Error during scheduled sync:', err.message);
-    } finally {
-      isSyncRunning = false;
-    }
-  }, intervalMs);
+  syncIntervalTimer = setInterval(() => runScheduledSync('scheduled'), intervalMs);
 
   // Initial sync after 15 seconds on startup
-  setTimeout(async () => {
-    if (isSyncRunning) return;
-    isSyncRunning = true;
-    try {
-      console.log('[Scheduler] Running initial startup sync check...');
-      const { executeFullSync } = await import('@/lib/sync/runner');
-      await executeFullSync();
-    } catch (err: any) {
-      console.error('[Scheduler] Error during startup sync:', err.message);
-    } finally {
-      isSyncRunning = false;
-    }
-  }, 15000);
+  setTimeout(() => runScheduledSync('startup'), 15000);
 
   // Initialize Daily Email Sync Scheduler
   const targetHour = parseInt(process.env.DAILY_EMAIL_SYNC_HOUR || '4', 10);

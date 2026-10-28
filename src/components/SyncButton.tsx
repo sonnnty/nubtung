@@ -48,9 +48,12 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
         throw new Error(job.error || 'Sync failed');
       }
 
-      const slipData = job.result.slips;
-      const stmData = job.result.statements;
-      const slipProcessed = slipData.stats?.processed ?? 0;
+      if (job.result.slipsError) {
+        throw new Error(job.result.slipsError);
+      }
+
+      const stmData = job.result.statement ?? {};
+      const slipProcessed = job.result.slips?.processed ?? 0;
       const stmAdded = stmData.addedFromStatement ?? 0;
       const stmMatched = stmData.matchedWithSlip ?? 0;
 

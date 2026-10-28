@@ -16,6 +16,8 @@ export interface Job<T = unknown> {
 // Kept on globalThis so the registry survives dev hot reloads and is shared between route modules
 const globalForJobs = globalThis as unknown as { __nubtangJobs?: Map<string, Job> };
 const jobs = (globalForJobs.__nubtangJobs ??= new Map<string, Job>());
+const globalForPromises = globalThis as unknown as { __nubtangJobPromises?: Map<string, Promise<void>> };
+const jobPromises = (globalForPromises.__nubtangJobPromises ??= new Map<string, Promise<void>>());
 
 const JOB_TTL_MS = 60 * 60 * 1000;
 
@@ -34,9 +36,8 @@ function pruneOldJobs() {
 export function startJob<T>(name: string, fn: (setStage: (stage: string) => void) => Promise<T>): Job<T> {
   pruneOldJobs();
 
-  for (const job of jobs.values()) {
-    if (job.name === name && job.status === 'running') return job as Job<T>;
-  }
+  const running = getRunningJob(name);
+  if (running) return running as Job<T>;
 
   const job: Job<T> = {
     id: crypto.randomUUID(),
@@ -47,7 +48,7 @@ export function startJob<T>(name: string, fn: (setStage: (stage: string) => void
   };
   jobs.set(job.id, job);
 
-  fn(stage => { job.stage = stage; })
+  const promise = fn(stage => { job.stage = stage; })
     .then(result => {
       job.result = result;
       job.status = 'done';
@@ -59,9 +60,24 @@ export function startJob<T>(name: string, fn: (setStage: (stage: string) => void
     })
     .finally(() => {
       job.finishedAt = new Date().toISOString();
+      jobPromises.delete(job.id);
     });
+  jobPromises.set(job.id, promise);
 
   return job;
+}
+
+export function getRunningJob(name: string): Job | undefined {
+  for (const job of jobs.values()) {
+    if (job.name === name && job.status === 'running') return job;
+  }
+  return undefined;
+}
+
+/** Resolves once the job has finished (successfully or not). */
+export async function waitForJob(id: string): Promise<Job | undefined> {
+  await jobPromises.get(id);
+  return jobs.get(id);
 }
 
 export function getJob(id: string): Job | undefined {

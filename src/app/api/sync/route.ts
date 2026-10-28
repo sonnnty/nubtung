@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { syncSlipsFromDrive } from '@/lib/sync/slips';
-import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
-import { startJob, getJob } from '@/lib/sync/jobs';
+import { startFullSyncJob } from '@/lib/sync/runner';
+import { getJob } from '@/lib/sync/jobs';
 
 /** Starts a slip + statement sync in the background and returns its job id right away. */
 export async function POST() {
-  const job = startJob('sync-all', async (setStage) => {
-    setStage('slips');
-    const slips = await syncSlipsFromDrive();
-    setStage('statements');
-    const statements = await syncStatementsFromEmail();
-    return { slips, statements };
-  });
+  const job = startFullSyncJob();
 
   return NextResponse.json({ jobId: job.id, status: job.status, stage: job.stage }, { status: 202 });
 }

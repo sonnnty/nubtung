@@ -1,22 +1,13 @@
-import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
-import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { appendTransactionRows, ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
-import { markSlipProcessed, markSlipsProcessedBatch, getProcessedSlipIds } from '@/lib/db';
+import { ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
+import { markSlipsProcessedBatch } from '@/lib/db';
 import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
-import { Transaction } from '@/types';
-
-function chunkArray<T>(array: T[], chunkSize: number): T[][] {
-  const results: T[][] = [];
-  for (let i = 0; i < array.length; i += chunkSize) {
-    results.push(array.slice(i, i + chunkSize));
-  }
-  return results;
-}
+import { syncSlipsFromDrive } from '@/lib/sync/slips';
+import { startJob } from '@/lib/sync/jobs';
 
 /**
  * Executes a full synchronization of Slips and e-Statements in high-speed parallel mode
  */
-export async function executeFullSync() {
+export async function executeFullSync(setStage: (stage: string) => void = () => {}) {
   const startTime = Date.now();
   console.log(`[Auto-Sync] 🔄 Starting high-speed background sync at ${new Date().toISOString()}...`);
 
@@ -33,110 +24,19 @@ export async function executeFullSync() {
     console.error('[Auto-Sync] Warning: Failed to hydrate slip cache from sheets:', err.message);
   }
 
-  const kplusFolderId = process.env.GOOGLE_DRIVE_KPLUS_FOLDER_ID;
-  const makeFolderId = process.env.GOOGLE_DRIVE_MAKE_FOLDER_ID;
-  const paotangFolderId = process.env.GOOGLE_DRIVE_PAOTANG_FOLDER_ID;
-
-  // Prioritize Make by KBank and Paotang first
-  const foldersToScan = [
-    { id: makeFolderId, account: 'Make by KBank' },
-    { id: paotangFolderId, account: 'เป๋าตัง' },
-    { id: kplusFolderId, account: 'K PLUS' },
-  ].filter((f): f is { id: string; account: string } => Boolean(f.id));
-
-  let slipsProcessed = 0;
-  let slipsSkipped = 0;
-  let slipsFailed = 0;
-  let transfersCount = 0;
-
-  const CONCURRENCY = 6;
-
-  for (const folder of foldersToScan) {
-    try {
-      const files = await listSlipsInFolder(folder.id);
-      const processedIds = await getProcessedSlipIds(files.map(f => f.id));
-      const unprocessed = files.filter(f => !processedIds.has(f.id));
-      slipsSkipped += (files.length - unprocessed.length);
-
-      const chunks = chunkArray(unprocessed, CONCURRENCY);
-
-      for (const chunk of chunks) {
-        const chunkTransactions: Transaction[] = [];
-
-        await Promise.all(
-          chunk.map(async (file) => {
-            try {
-              const { base64, mimeType } = await downloadFileAsBase64(file.id);
-              const slipData = await analyzeSlipImage(base64, mimeType, folder.account);
-
-              // Ignore non-slip images, QR generation screens, or zero-amount items
-              if (!slipData.amount || slipData.amount <= 0) {
-                console.log(`[Auto-Sync] Ignored non-slip / zero-amount image: ${file.name}`);
-                await markSlipProcessed({
-                  driveFileId: file.id,
-                  account: folder.account,
-                  amount: 0,
-                  transactionDate: slipData.date,
-                  status: 'IGNORED_ZERO',
-                });
-                return;
-              }
-
-              if (slipData.isSelfTransfer) {
-                transfersCount++;
-              }
-
-              const txId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-              const slipLink = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
-
-              const newTx: Transaction = {
-                id: txId,
-                date: slipData.date,
-                time: slipData.time,
-                type: slipData.type,
-                amount: slipData.amount,
-                category: slipData.category,
-                account: folder.account,
-                note: slipData.note,
-                slipUrl: slipLink,
-                driveFileId: file.id,
-                source: 'AUTO_SYNC',
-                createdAt: new Date().toISOString(),
-              };
-
-              chunkTransactions.push(newTx);
-
-              await markSlipProcessed({
-                driveFileId: file.id,
-                account: folder.account,
-                amount: slipData.amount,
-                transactionDate: slipData.date,
-                status: 'SUCCESS',
-              });
-
-              slipsProcessed++;
-            } catch (err: any) {
-              slipsFailed++;
-              console.error(`[Auto-Sync] Error on ${file.name}:`, err.message);
-              await markSlipProcessed({
-                driveFileId: file.id,
-                account: folder.account,
-                status: 'FAILED',
-              });
-            }
-          })
-        );
-
-        if (chunkTransactions.length > 0) {
-          await appendTransactionRows(chunkTransactions);
-        }
-      }
-    } catch (err: any) {
-      console.error(`[Auto-Sync] Error scanning folder ${folder.account}:`, err.message);
-    }
+  // 1. Sync slips from Drive (OCR + MD5/signature dedup)
+  setStage('slips');
+  let slips: Awaited<ReturnType<typeof syncSlipsFromDrive>>['stats'] | null = null;
+  let slipsError: string | undefined;
+  try {
+    slips = (await syncSlipsFromDrive()).stats;
+  } catch (err: any) {
+    slipsError = err.message;
+    console.error('[Auto-Sync] Error syncing slips:', err.message);
   }
 
   // 2. Sync Statements from Email (with Slip-First Deduplication)
+  setStage('statements');
   let stmResult: any = { skipped: true };
   try {
     stmResult = await syncStatementsFromEmail();
@@ -146,7 +46,7 @@ export async function executeFullSync() {
 
   const durationMs = Date.now() - startTime;
   console.log(
-    `[Auto-Sync] ✅ Finished in ${durationMs}ms: Slips new=${slipsProcessed}, skipped=${slipsSkipped}, Statement=${stmResult.skipped ? 'cached' : 'updated'}`
+    `[Auto-Sync] ✅ Finished in ${durationMs}ms: Slips new=${slips?.processed ?? 0}, skipped=${slips?.skipped ?? 0}, Statement=${stmResult.skipped ? 'cached' : 'updated'}`
   );
 
   return {
@@ -154,11 +54,23 @@ export async function executeFullSync() {
     timestamp: new Date().toISOString(),
     durationMs,
     slips: {
-      processed: slipsProcessed,
-      skipped: slipsSkipped,
-      failed: slipsFailed,
-      transfers: transfersCount,
+      processed: slips?.processed ?? 0,
+      skipped: slips?.skipped ?? 0,
+      failed: slips?.failed ?? 0,
+      transfers: slips?.transfers ?? 0,
     },
+    slipsError,
     statement: stmResult,
   };
+}
+
+export const FULL_SYNC_JOB = 'sync-all';
+
+/**
+ * Starts executeFullSync as a background job. Every entry point (sync button, scheduler, cron)
+ * goes through this, so only one sync touches Drive/Sheets at a time; if one is already running
+ * its job is returned instead of starting another.
+ */
+export function startFullSyncJob() {
+  return startJob(FULL_SYNC_JOB, executeFullSync);
 }
