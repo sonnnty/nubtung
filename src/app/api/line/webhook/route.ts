@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
+import { validateSignature } from '@line/bot-sdk';
 import { handleLineEvent } from '@/lib/line/bot';
 
 export async function POST(req: Request) {
+  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  const signature = req.headers.get('x-line-signature');
+  const rawBody = await req.text();
+
+  if (!channelSecret || !signature || !validateSignature(rawBody, channelSecret, signature)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
   try {
-    const body = await req.json();
+    const body = JSON.parse(rawBody);
     const events = body.events || [];
 
     for (const event of events) {
@@ -11,10 +20,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('LINE Webhook Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to process LINE webhook' },
+      { error: error instanceof Error ? error.message : 'Failed to process LINE webhook' },
       { status: 500 }
     );
   }

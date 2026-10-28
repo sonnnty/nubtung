@@ -73,7 +73,7 @@ export async function GET() {
             toAcc = 'เป๋าตัง';
           } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
             toAcc = 'Make by KBank';
-          } else if (note.includes('k plus') || note.includes('0568966651') || note.includes('กสิกร')) {
+          } else if (note.includes('k plus') || (!!process.env.KPLUS_ACCOUNT_NO && note.includes(process.env.KPLUS_ACCOUNT_NO)) || note.includes('กสิกร')) {
             toAcc = 'K PLUS';
           } else if (note.includes('เงินสด') && fromAcc !== 'เงินสด') {
             toAcc = 'เงินสด';

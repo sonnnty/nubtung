@@ -28,6 +28,22 @@ export async function handleLineEvent(event: any) {
   const replyToken = event.replyToken;
   const message = event.message;
 
+  // Only the owner's LINE account may read balances or record transactions
+  const allowedUserIds = (process.env.LINE_ALLOWED_USER_IDS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const userId: string | undefined = event.source?.userId;
+  if (!userId || !allowedUserIds.includes(userId)) {
+    console.warn(`[LINE] Rejected message from unlisted userId: ${userId}`);
+    await getLineClient().replyMessage({
+      replyToken,
+      messages: [{
+        type: 'text',
+        text: `⛔ บัญชีนี้ไม่ได้รับอนุญาต\nถ้าเป็นเจ้าของ ให้เพิ่ม LINE_ALLOWED_USER_IDS=${userId ?? ''} ใน .env.local`,
+      }],
+    });
+    return;
+  }
+
   if (message.type === 'text') {
     await handleTextMessage(replyToken, message.text);
   } else if (message.type === 'image') {

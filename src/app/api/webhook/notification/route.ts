@@ -3,8 +3,13 @@ import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets'
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
 import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
+import { hasValidSecret } from '@/lib/auth/secret';
 
 export async function POST(req: Request) {
+  if (!hasValidSecret(req, process.env.WEBHOOK_SECRET)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const rawBody = await req.text();
     let payload: any = {};
@@ -51,14 +56,14 @@ export async function POST(req: Request) {
     }
 
     // 2. Identify Account (K PLUS vs Make by KBank)
-    const kplusFull = process.env.KPLUS_ACCOUNT_NO || '0568966651';
-    const makeFull = process.env.MAKE_ACCOUNT_NO || '1183962996';
-    const kplusLast4 = kplusFull.slice(-4); // 6665
-    const makeLast4 = makeFull.slice(-4);   // 6299
+    const kplusFull = process.env.KPLUS_ACCOUNT_NO || '';
+    const makeFull = process.env.MAKE_ACCOUNT_NO || '';
+    const kplusLast4 = kplusFull.slice(-4);
+    const makeLast4 = makeFull.slice(-4);
 
     let account = 'K PLUS';
-    const hasKplus = text.includes(kplusLast4) || text.includes(kplusFull);
-    const hasMake = text.includes(makeLast4) || text.includes(makeFull) || /make/i.test(text);
+    const hasKplus = !!kplusFull && (text.includes(kplusLast4) || text.includes(kplusFull));
+    const hasMake = (!!makeFull && (text.includes(makeLast4) || text.includes(makeFull))) || /make/i.test(text);
 
     if (hasMake && !hasKplus) {
       account = 'Make by KBank';
@@ -67,7 +72,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Self-Transfer Detection (โอนเงินระหว่าง 2 บัญชีนี้ หรือโอนเข้าเป๋าตังตัวเอง)
-    const ownNamesConfig = process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot';
+    const ownNamesConfig = process.env.OWN_ACCOUNT_NAMES || '';
     const ownNames = ownNamesConfig.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
     // Self-transfer happens when:
