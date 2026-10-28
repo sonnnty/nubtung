@@ -25,24 +25,31 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
     setIsError(false);
 
     try {
-      // 1. Sync Slips first
+      // The server runs the sync in the background; poll until it finishes so a long OCR run
+      // never exceeds the reverse proxy's request timeout.
       setStatusText('กำลังสแกนสลิป...');
-      const slipRes = await fetch('/api/sync', { method: 'POST' });
-      const slipData = await readJson(slipRes);
-
-      if (!slipRes.ok) {
-        throw new Error(slipData.error || 'Slip sync failed');
+      const startRes = await fetch('/api/sync', { method: 'POST' });
+      let job = await readJson(startRes);
+      if (!startRes.ok) {
+        throw new Error(job.error || 'Sync failed to start');
       }
 
-      // 2. Sync Statements next
-      setStatusText('กำลังกระทบยอด Statement...');
-      const stmRes = await fetch('/api/statements/sync', { method: 'POST' });
-      const stmData = await readJson(stmRes);
-
-      if (!stmRes.ok) {
-        throw new Error(stmData.error || 'Statement sync failed');
+      while (job.status === 'running') {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const pollRes = await fetch(`/api/sync?jobId=${encodeURIComponent(job.id ?? job.jobId)}`);
+        job = await readJson(pollRes);
+        if (!pollRes.ok) {
+          throw new Error(job.error || 'Sync status check failed');
+        }
+        setStatusText(job.stage === 'statements' ? 'กำลังกระทบยอด Statement...' : 'กำลังสแกนสลิป...');
       }
 
+      if (job.status === 'error') {
+        throw new Error(job.error || 'Sync failed');
+      }
+
+      const slipData = job.result.slips;
+      const stmData = job.result.statements;
       const slipProcessed = slipData.stats?.processed ?? 0;
       const stmAdded = stmData.addedFromStatement ?? 0;
       const stmMatched = stmData.matchedWithSlip ?? 0;
