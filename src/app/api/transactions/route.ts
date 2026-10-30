@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure, normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
+import { resolveTransferDestination } from '@/lib/balance/transfer-destination';
 
 export async function GET() {
   try {
@@ -52,38 +53,7 @@ export async function GET() {
           dynamicAccountBalances[fromAcc] = (dynamicAccountBalances[fromAcc] || 0) - tx.amount;
 
           // Credit to destination account
-          const note = (tx.note || '').toLowerCase();
-          const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
-
-          let toAcc: string | null = null;
-          if (note.includes('ไปยัง k plus') || note.includes('เข้า k plus') || note.includes('to k plus') || note.includes('ฝากเงินเข้า k plus')) {
-            toAcc = 'K PLUS';
-          } else if (note.includes('ไปยัง make') || note.includes('เข้า make') || note.includes('to make') || note.includes('ฝากเงินเข้า make')) {
-            toAcc = 'Make by KBank';
-          } else if (note.includes('ไปยัง เป๋าตัง') || note.includes('เข้า เป๋าตัง') || note.includes('to paotang') || note.includes('เติมเงิน g-wallet')) {
-            toAcc = 'เป๋าตัง';
-          } else if (note.includes('ไปยัง เงินสด') || note.includes('เข้า เงินสด') || note.includes('ถอนเงินสด') || note.includes('to cash') || note.includes('ถอน atm')) {
-            toAcc = 'เงินสด';
-          } else if (
-            note.includes(paotangAccountNo) ||
-            note.includes('เป๋าตัง') ||
-            note.includes('g-wallet') ||
-            note.includes('ktb g-wallet')
-          ) {
-            toAcc = 'เป๋าตัง';
-          } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
-            toAcc = 'Make by KBank';
-          } else if (note.includes('k plus') || note.includes('k+') || (!!process.env.KPLUS_ACCOUNT_NO && note.includes(process.env.KPLUS_ACCOUNT_NO)) || note.includes('กสิกร')) {
-            toAcc = 'K PLUS';
-          } else if (note.includes('เงินสด') && fromAcc !== 'เงินสด') {
-            toAcc = 'เงินสด';
-          }
-
-          // Slips between my two KBank accounts often only say "โอนระหว่างบัญชี"; the other side is implied
-          if (!toAcc && note.trim() === 'โอนระหว่างบัญชี') {
-            if (fromAcc === 'K PLUS') toAcc = 'Make by KBank';
-            else if (fromAcc === 'Make by KBank') toAcc = 'K PLUS';
-          }
+          const toAcc = resolveTransferDestination(tx.note, fromAcc);
 
           if (toAcc) {
             dynamicAccountBalances[toAcc] = (dynamicAccountBalances[toAcc] || 0) + tx.amount;
