@@ -200,6 +200,19 @@ export async function isStatementProcessed(
   return res.rows.length > 0;
 }
 
+/**
+ * Returns a Set of file_ids that are already recorded in processed_statements
+ */
+export async function getProcessedStatementIds(fileIds: string[]): Promise<Set<string>> {
+  if (!fileIds || fileIds.length === 0) return new Set();
+
+  const res = await query(
+    'SELECT file_id FROM processed_statements WHERE file_id = ANY($1)',
+    [fileIds]
+  );
+  return new Set(res.rows.map((r) => r.file_id));
+}
+
 export async function markStatementProcessed(data: {
   fileId: string;
   fileName: string;

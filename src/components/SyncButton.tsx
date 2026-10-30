@@ -41,7 +41,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
         if (!pollRes.ok) {
           throw new Error(job.error || 'Sync status check failed');
         }
-        setStatusText(job.stage === 'statements' ? 'กำลังกระทบยอด Statement...' : 'กำลังสแกนสลิป...');
+        setStatusText(job.stage === 'statements' ? 'กำลังกระทบยอด Statement...' : job.stage === 'mortgage' ? 'กำลังดึงใบเสร็จค่าบ้าน...' : 'กำลังสแกนสลิป...');
       }
 
       if (job.status === 'error') {

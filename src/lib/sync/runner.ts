@@ -2,10 +2,11 @@ import { ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/shee
 import { markSlipsProcessedBatch } from '@/lib/db';
 import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
 import { syncSlipsFromDrive } from '@/lib/sync/slips';
+import { syncMortgageReceiptsFromEmail } from '@/lib/ghb/sync';
 import { startJob } from '@/lib/sync/jobs';
 
 /**
- * Executes a full synchronization of Slips and e-Statements in high-speed parallel mode
+ * Executes a full synchronization of Slips, e-Statements and GH Bank mortgage receipts
  */
 export async function executeFullSync(setStage: (stage: string) => void = () => {}) {
   const startTime = Date.now();
@@ -44,9 +45,20 @@ export async function executeFullSync(setStage: (stage: string) => void = () => 
     console.error('[Auto-Sync] Error syncing statements from email:', err.message);
   }
 
+  // 3. Sync GH Bank mortgage receipts from Email (only emails not seen before are downloaded)
+  setStage('mortgage');
+  let mortgage: { added: number; errors: string[] } = { added: 0, errors: [] };
+  try {
+    mortgage = await syncMortgageReceiptsFromEmail();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    mortgage = { added: 0, errors: [message] };
+    console.error('[Auto-Sync] Error syncing mortgage receipts from email:', message);
+  }
+
   const durationMs = Date.now() - startTime;
   console.log(
-    `[Auto-Sync] ✅ Finished in ${durationMs}ms: Slips new=${slips?.processed ?? 0}, skipped=${slips?.skipped ?? 0}, Statement=${stmResult.skipped ? 'cached' : 'updated'}`
+    `[Auto-Sync] ✅ Finished in ${durationMs}ms: Slips new=${slips?.processed ?? 0}, skipped=${slips?.skipped ?? 0}, Statement=${stmResult.skipped ? 'cached' : 'updated'}, Mortgage new=${mortgage.added}`
   );
 
   return {
@@ -61,6 +73,7 @@ export async function executeFullSync(setStage: (stage: string) => void = () => 
     },
     slipsError,
     statement: stmResult,
+    mortgage,
   };
 }
 

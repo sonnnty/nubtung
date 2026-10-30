@@ -6,6 +6,8 @@ import path from 'path';
 import os from 'os';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { saveMortgagePayment, getMortgageAccounts, getMortgagePayments, calculateRemainingBalanceFromHistory } from '../db/mortgage.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { getProcessedStatementIds, markStatementProcessed } from '../db/index.ts';
 
 export interface ParsedReceipt {
   accountNo: string;
@@ -203,6 +205,11 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
 
     const validAccounts = new Set(['011690010474', '011690010482']);
     const parsedReceipts: Array<ParsedReceipt & { uid: number }> = [];
+    // Emails are remembered by UID so the hourly full sync only downloads new ones
+    const uidValidity = client.mailbox ? String(client.mailbox.uidValidity) : '0';
+    const emailFileId = (uid: number) => `ghb_email_${uidValidity}_${uid}`;
+    const newUids: number[] = [];
+    const failedUids = new Set<number>();
 
     try {
       const searchResult = await client.search({
@@ -212,13 +219,15 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
           { from: 'worachotw.43@gmail.com' },
           { body: 'ghbank' },
         ],
-      });
+      }, { uid: true });
 
-      const uids = Array.isArray(searchResult) ? searchResult : [];
+      const allUids = Array.isArray(searchResult) ? searchResult : [];
+      const processedIds = await getProcessedStatementIds(allUids.map(emailFileId));
+      newUids.push(...allUids.filter((uid) => !processedIds.has(emailFileId(uid))));
 
-      for (const uid of uids) {
+      for (const uid of newUids) {
         try {
-          const { content } = await client.download(String(uid));
+          const { content } = await client.download(String(uid), undefined, { uid: true });
           const parsed = await simpleParser(content);
 
           if (!parsed.attachments || parsed.attachments.length === 0) continue;
@@ -267,6 +276,7 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
           const msg = `Failed to process message UID ${uid}: ${err instanceof Error ? err.message : String(err)}`;
           console.warn(`[GHB Mortgage Sync] ${msg}`);
           errors.push(msg);
+          failedUids.add(uid);
         }
       }
     } finally {
@@ -301,6 +311,17 @@ export async function syncMortgageReceiptsFromEmail(): Promise<{ added: number; 
         const msg = `Failed to save payment for account ${receipt.accountNo} (${receipt.dateStr}): ${err instanceof Error ? err.message : String(err)}`;
         console.error(`[GHB Mortgage Sync] ${msg}`);
         errors.push(msg);
+        failedUids.add(receipt.uid);
+      }
+    }
+
+    // Remember emails handled without errors (including ones with no receipt) so they are not downloaded again
+    for (const uid of newUids) {
+      if (failedUids.has(uid)) continue;
+      try {
+        await markStatementProcessed({ fileId: emailFileId(uid), fileName: 'GHB receipt email', modifiedTime: uidValidity });
+      } catch (err) {
+        console.warn(`[GHB Mortgage Sync] Failed to remember message UID ${uid}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
