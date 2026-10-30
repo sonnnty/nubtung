@@ -53,6 +53,8 @@ export interface DashboardSummary {
   categoryBreakdown: Record<string, number>;
   recentTransactions: Transaction[];
   accountBalances?: Record<string, number>;
+  /** Accounts whose balance starts from a statement closing balance -> statement period end (YYYY-MM-DD) */
+  accountBalanceAsOf?: Record<string, string>;
   totalCashInAccounts?: number;
 }
 

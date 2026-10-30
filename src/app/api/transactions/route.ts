@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure, normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
-import { resolveTransferDestination } from '@/lib/balance/transfer-destination';
+import { computeAccountBalances } from '@/lib/balance/account-balances';
+import { getStatementBalances, type StatementBalance } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -27,40 +28,15 @@ export async function GET() {
       }
     }
 
-    // Verified baseline balances as of 2026-09-04
-    const dynamicAccountBalances: Record<string, number> = {
-      'K PLUS': 43253.07,
-      'Make by KBank': 3672.29,
-      'เป๋าตัง': 195.44,
-      'เงินสด': 0.00,
-    };
-
-    // Calculate real-time dynamic balance updates from transactions dated >= 2026-09-04
-    for (const tx of transactions) {
-      if (tx.date >= '2026-09-04') {
-        const acc = tx.account || 'เงินสด';
-        if (dynamicAccountBalances[acc] === undefined) {
-          dynamicAccountBalances[acc] = 0;
-        }
-
-        if (tx.type === 'INCOME') {
-          dynamicAccountBalances[acc] += tx.amount;
-        } else if (tx.type === 'EXPENSE') {
-          dynamicAccountBalances[acc] -= tx.amount;
-        } else if (tx.type === 'TRANSFER') {
-          // Deduct from sender account
-          const fromAcc = tx.account || 'เงินสด';
-          dynamicAccountBalances[fromAcc] = (dynamicAccountBalances[fromAcc] || 0) - tx.amount;
-
-          // Credit to destination account
-          const toAcc = resolveTransferDestination(tx.note, fromAcc);
-
-          if (toAcc) {
-            dynamicAccountBalances[toAcc] = (dynamicAccountBalances[toAcc] || 0) + tx.amount;
-          }
-        }
-      }
+    // Baseline balances as of 2026-09-04, or the newest statement's closing balance (ยอดยกไป) per account,
+    // plus every transaction after that
+    let anchors: StatementBalance[] = [];
+    try {
+      anchors = await getStatementBalances();
+    } catch (err: unknown) {
+      console.error('Error reading statement balances, using the 2026-09-04 baseline only:', err instanceof Error ? err.message : err);
     }
+    const { balances: dynamicAccountBalances, asOf: accountBalanceAsOf } = computeAccountBalances(transactions, anchors);
 
     const totalCashInAccounts = Object.values(dynamicAccountBalances).reduce((sum, b) => sum + b, 0);
 
@@ -73,6 +49,7 @@ export async function GET() {
       categoryBreakdown,
       recentTransactions: transactions.slice(0, 10),
       accountBalances: dynamicAccountBalances,
+      accountBalanceAsOf,
       totalCashInAccounts,
     };
 
