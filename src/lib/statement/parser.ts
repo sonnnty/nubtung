@@ -1,23 +1,15 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
 import { getGoogleAuth } from '@/lib/google/auth';
 import { getSpreadsheetId, getSheetsClient } from '@/lib/google/sheets';
+import { parseStatementText, type StatementTransaction } from '@/lib/statement/statement-text';
 
-export interface StatementTransaction {
-  date: string;
-  time: string;
-  typeDesc: string;
-  type: 'EXPENSE' | 'INCOME' | 'TRANSFER';
-  amount: number;
-  category: string;
-  channel: string;
-  details: string;
-  balance?: number;
-}
+export { parseStatementText, parseStatement, type StatementTransaction } from '@/lib/statement/statement-text';
 
-export function parseStatementPdf(pdfBuffer: Buffer, password?: string): StatementTransaction[] {
+/** Runs `pdftotext -layout` on a (password-protected) KBank statement PDF and returns its text */
+export function extractStatementText(pdfBuffer: Buffer, password?: string): string {
   const tempDir = path.join(process.cwd(), 'data', 'temp');
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
@@ -27,13 +19,12 @@ export function parseStatementPdf(pdfBuffer: Buffer, password?: string): Stateme
   fs.writeFileSync(tempFilePath, pdfBuffer);
 
   try {
-    const pwArg = password ? `-upw ${password}` : '';
-    const stdout = execSync(`pdftotext -layout ${pwArg} "${tempFilePath}" -`, {
+    const args = ['-layout', ...(password ? ['-upw', password] : []), tempFilePath, '-'];
+    return execFileSync('pdftotext', args, {
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-
-    return parseStatementText(stdout);
   } finally {
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
@@ -41,130 +32,9 @@ export function parseStatementPdf(pdfBuffer: Buffer, password?: string): Stateme
   }
 }
 
-export function parseStatementText(text: string): StatementTransaction[] {
-  const lines = text.split('\n');
-  const transactions: StatementTransaction[] = [];
-  let currentTx: any = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const match = line.match(/^\s*(\d{2}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s+([^\d\s][^\d]+?)\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})\s+(.+)$/);
-
-    if (match) {
-      if (currentTx) {
-        transactions.push(finalizeTx(currentTx));
-      }
-
-      const [d, m, y] = match[1].split('-');
-      const fullYear = parseInt(y, 10) < 50 ? '20' + y : '19' + y;
-      const formattedDate = `${fullYear}-${m}-${d}`;
-      const time = `${match[2]}:00`;
-      const typeDesc = match[3].trim();
-      const val1 = match[4] ? parseFloat(match[4].replace(/,/g, '')) : null;
-      const val2 = match[5] ? parseFloat(match[5].replace(/,/g, '')) : null;
-      const balance = match[6] ? parseFloat(match[6].replace(/,/g, '')) : undefined;
-      const rest = match[7].trim();
-
-      let withdrawal: number | null = null;
-      let deposit: number | null = null;
-      if (val1 !== null && val2 !== null) {
-        withdrawal = val1;
-        deposit = val2;
-      } else if (val1 !== null && val2 === null) {
-        if (typeDesc.includes('รับ') || typeDesc.includes('ฝาก') || typeDesc.includes('ดอกเบี้ย')) {
-          deposit = val1;
-        } else {
-          withdrawal = val1;
-        }
-      }
-
-      currentTx = {
-        date: formattedDate,
-        time,
-        typeDesc,
-        withdrawal,
-        deposit,
-        balance,
-        rawRest: rest,
-      };
-    } else if (currentTx && /^\s{60,}\S/.test(line)) {
-      currentTx.rawRest += ' ' + line.trim();
-    }
-  }
-
-  if (currentTx) {
-    transactions.push(finalizeTx(currentTx));
-  }
-
-  return transactions;
-}
-
-function finalizeTx(raw: any): StatementTransaction {
-  const isDeposit = raw.deposit !== null && raw.deposit > 0;
-  const amount = isDeposit ? raw.deposit : (raw.withdrawal || 0);
-
-  const ownNamesConfig = process.env.OWN_ACCOUNT_NAMES || 'วรโชติ,worachot';
-  const ownNames = ownNamesConfig.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-
-  const detailText = `${raw.typeDesc} ${raw.rawRest}`.toLowerCase();
-  let isSelf = false;
-  for (const name of ownNames) {
-    if (detailText.includes(name)) {
-      isSelf = true;
-      break;
-    }
-  }
-
-  // A deposit from one of my own accounts that the dashboard doesn't track (e.g. GHB)
-  // is new money for K PLUS. Recording it as TRANSFER makes the balance calc deduct it
-  // from K PLUS instead, so keep it as INCOME under the (tax-exempt) transfer category.
-  const isFromUntrackedOwnAccount = isSelf && isDeposit && !isFromTrackedAccount(detailText);
-
-  let type: 'EXPENSE' | 'INCOME' | 'TRANSFER' = isDeposit ? 'INCOME' : 'EXPENSE';
-  if (isSelf && !isFromUntrackedOwnAccount) {
-    type = 'TRANSFER';
-  }
-
-  const category = isFromUntrackedOwnAccount
-    ? 'โอนระหว่างบัญชี'
-    : categorizeStatementRow(raw.typeDesc, raw.rawRest, type);
-
-  return {
-    date: raw.date,
-    time: raw.time,
-    typeDesc: raw.typeDesc,
-    type,
-    amount,
-    category,
-    channel: 'K PLUS',
-    details: `${raw.typeDesc}: ${raw.rawRest}`,
-    balance: raw.balance,
-  };
-}
-
-// Accounts besides K PLUS whose balances the dashboard tracks (Make by KBank, เป๋าตัง)
-function isFromTrackedAccount(detailText: string): boolean {
-  const makeLast4 = (process.env.MAKE_ACCOUNT_NO || '2996').slice(-4);
-  const paotangLast4 = (process.env.PAOTANG_ACCOUNT_NO || '9289').slice(-4);
-  return (
-    /make by kbank|g-wallet|เป๋าตัง/i.test(detailText) ||
-    detailText.includes(`x${makeLast4}`) ||
-    detailText.includes(`x${paotangLast4}`)
-  );
-}
-
-function categorizeStatementRow(txDesc: string, rest: string, type: 'EXPENSE' | 'INCOME' | 'TRANSFER'): string {
-  if (type === 'TRANSFER') return 'โอนระหว่างบัญชี';
-  if (type === 'INCOME') return 'เงินเดือน/รายรับ';
-
-  const text = `${txDesc} ${rest}`.toLowerCase();
-  if (/shopee|lazada|tiktok|เครื่องรูดบัตร|edc/i.test(text)) return 'ช้อปปิ้ง';
-  if (/ปตท|ptt|บางจาก|shell|caltex|น้ำมัน|ทางด่วน/i.test(text)) return 'การเดินทาง/ค่าน้ำมัน';
-  if (/เซเว่น|7-eleven|cj express|lotus|โลตัส|big c|บิ๊กซี|central food/i.test(text)) return 'ของใช้ในบ้าน/ซูเปอร์';
-  if (/ไฟฟ้า|ประปา|ais|true|dtac|เน็ต|3bb|nt/i.test(text)) return 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)';
-  if (/อาหาร|กาแฟ|cafe|amazon|ข้าวมันไก่|กะเพรา|ชา|มณี shop/i.test(text)) return 'อาหารและเครื่องดื่ม';
-  if (/ยา|คลินิก|โรงพยาบาล|health|medical/i.test(text)) return 'สุขภาพ/ยา';
-  return 'อื่นๆ';
+/** Parses a statement PDF as K PLUS. Kept for callers that only handle K PLUS statements. */
+export function parseStatementPdf(pdfBuffer: Buffer, password?: string): StatementTransaction[] {
+  return parseStatementText(extractStatementText(pdfBuffer, password));
 }
 
 import { isStatementProcessed, markStatementProcessed } from '@/lib/db';
