@@ -1,8 +1,12 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import { parseStatementPdf, StatementTransaction } from '@/lib/statement/parser';
+import { extractStatementText } from '@/lib/statement/parser';
+import { parseStatement, checkStatementTotals, periodEndFromStatementFileName, type ParsedStatement } from '@/lib/statement/statement-text';
+import { detectStatementAccount, last4FromStatementFileName, last4FromStatementHeader, type StatementAccount } from '@/lib/statement/accounts';
+import { planStatementImport } from '@/lib/statement/import-plan';
 import { getAllTransactions, appendTransactionRows } from '@/lib/google/sheets';
-import { isStatementProcessed, markStatementProcessed } from '@/lib/db';
+import { isStatementProcessed, markStatementProcessed, getStatementBalances } from '@/lib/db';
+import { recordStatementAnchor } from '@/lib/statement/anchor';
 import { Transaction } from '@/types';
 
 export interface StatementEmailSyncResult {
@@ -13,6 +17,8 @@ export interface StatementEmailSyncResult {
   totalStatementTransactions: number;
   matchedWithSlip: number;
   addedFromStatement: number;
+  /** Statements for accounts the dashboard doesn't track; skipped, not imported */
+  unknownAccountFiles?: string[];
   newTransactions?: Array<{
     date: string;
     amount: number;
@@ -23,12 +29,34 @@ export interface StatementEmailSyncResult {
   skipped?: boolean;
 }
 
+interface PendingStatement {
+  fileId: string;
+  fileName: string;
+  modifiedTime: string;
+  account: StatementAccount;
+  parsed: ParsedStatement;
+}
+
+function readStatementText(content: Buffer, passwords: string[]): string | null {
+  for (const pw of passwords) {
+    try {
+      const text = extractStatementText(content, pw);
+      if (text.trim()) return text;
+    } catch {
+      // Try next password
+    }
+  }
+  return null;
+}
+
 /**
  * Synchronizes Kasikornbank e-Statements received via email (from K-ElectronicDocument@kasikornbank.com)
- * Uses Slip-First Deduplication:
- * - If a statement transaction matches an existing slip/transaction on (date, amount, account='K PLUS'),
- *   the slip record remains primary and unchanged.
- * - Only unmatched, statement-exclusive transactions (e.g. interest, fees, direct debit) are added with source='STATEMENT'.
+ * - The account comes from the file name STM_SA<last4> (or the PDF header); statements of other accounts are skipped.
+ * - Slip-First Deduplication per account: a statement row matching an existing row of the same account on
+ *   (date, amount) leaves that row as it is. Only unmatched rows (interest, fees, deposits without a slip...)
+ *   are added with source='STATEMENT'.
+ * - Transfers between my tracked accounts are stored once, on the sending account (see import-plan.ts).
+ * - The closing balance of the newest statement per account anchors the dashboard balance.
  */
 export async function syncStatementsFromEmail(forceRefresh = false): Promise<StatementEmailSyncResult> {
   const user = process.env.GHB_EMAIL_USER || 'worachotw.43@gmail.com';
@@ -93,25 +121,18 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
       // 1. Fetch all existing transactions to prepare for Slip-First Deduplication
       const existingTransactions = await getAllTransactions();
       
-      // Index existing K PLUS transactions for fast, single-use matching
-      // Map of "YYYY-MM-DD_AMOUNT" -> Array of available matching entries
-      const slipMatchMap = new Map<string, Array<{ id: string; used: boolean; tx: Transaction }>>();
-      for (const tx of existingTransactions) {
-        if (tx.account === 'K PLUS' || !tx.account) {
-          const key = `${tx.date}_${tx.amount.toFixed(2)}`;
-          if (!slipMatchMap.has(key)) {
-            slipMatchMap.set(key, []);
-          }
-          slipMatchMap.get(key)!.push({ id: tx.id, used: false, tx });
-        }
+      // Closing balances already stored, to backfill anchors from statements imported before they existed
+      const anchorPeriodEnds = new Map<string, string>();
+      try {
+        for (const anchor of await getStatementBalances()) anchorPeriodEnds.set(anchor.account, anchor.periodEnd);
+      } catch (err: unknown) {
+        console.error('[Statement Email Sync] Could not read statement balances:', err instanceof Error ? err.message : err);
       }
 
-      let processedFiles = 0;
       let skippedFiles = 0;
       let totalStatementTransactions = 0;
-      let matchedWithSlip = 0;
-      let addedFromStatement = 0;
-      const allNewTransactions: Transaction[] = [];
+      const unknownAccountFiles: string[] = [];
+      const pending: PendingStatement[] = [];
 
       // Sort UIDs descending to process most recent statements first
       const sortedUids = [...uids].sort((a, b) => b - a);
@@ -131,97 +152,107 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
             if (!isStatementPdf) continue;
 
             const fileId = `email_stm_${filename}`;
+            if (pending.some(p => p.fileId === fileId)) continue;
 
             // Check if already processed
             if (!forceRefresh) {
               const alreadyProcessed = await isStatementProcessed(fileId);
               if (alreadyProcessed) {
                 skippedFiles++;
+                // Statements imported before closing balances were stored: record the newest one per account
+                const account = detectStatementAccount(filename);
+                const periodEnd = periodEndFromStatementFileName(filename);
+                const known = account ? anchorPeriodEnds.get(account) : undefined;
+                if (account && periodEnd && (!known || periodEnd > known)) {
+                  const text = readStatementText(att.content, passwordCandidates);
+                  if (text && await recordStatementAnchor(account, parseStatement(text, filename), fileId)) {
+                    anchorPeriodEnds.set(account, periodEnd);
+                  }
+                }
                 continue;
               }
             }
 
-            // Parse PDF with password candidates
-            let statementTxs: StatementTransaction[] = [];
-            for (const pw of passwordCandidates) {
-              try {
-                statementTxs = parseStatementPdf(att.content, pw);
-                if (statementTxs.length > 0) break;
-              } catch {
-                // Try next password
-              }
+            const text = readStatementText(att.content, passwordCandidates);
+            if (!text) {
+              console.warn(`[Statement Email Sync] Could not read ${filename} (wrong password?)`);
+              continue;
             }
 
-            if (statementTxs.length === 0) {
+            const statement = parseStatement(text, filename);
+            if (!statement.account) {
+              // Never import a statement of an unknown account as K PLUS. Not marked as processed,
+              // so it is picked up once KPLUS_ACCOUNT_NO / MAKE_ACCOUNT_NO match it.
+              const last4 = last4FromStatementFileName(filename) || last4FromStatementHeader(text) || '?';
+              console.warn(`[Statement Email Sync] Skipping ${filename}: account ending ${last4} is not K PLUS or Make by KBank`);
+              unknownAccountFiles.push(filename);
+              continue;
+            }
+
+            if (statement.transactions.length === 0 && statement.header.closingBalance === null) {
               console.warn(`[Statement Email Sync] Could not parse transactions from ${filename}`);
               continue;
             }
 
-            totalStatementTransactions += statementTxs.length;
-
-            // Slip-First Deduplication for each transaction in the statement
-            for (const stm of statementTxs) {
-              const key = `${stm.date}_${stm.amount.toFixed(2)}`;
-              const availableSlips = slipMatchMap.get(key) || [];
-              const matchedEntry = availableSlips.find(e => !e.used);
-
-              if (matchedEntry) {
-                // MATCHED WITH SLIP!
-                // Keep the slip record intact in Google Sheets as primary.
-                matchedEntry.used = true;
-                matchedWithSlip++;
-              } else {
-                // UNMATCHED: Statement-exclusive transaction (e.g. interest, bank fee, direct debit)
-                const txId = `stm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-                const newTx: Transaction = {
-                  id: txId,
-                  date: stm.date,
-                  time: stm.time,
-                  type: stm.type,
-                  amount: stm.amount,
-                  category: stm.category || 'อื่นๆ',
-                  account: 'K PLUS',
-                  note: stm.details || stm.typeDesc || 'KBank e-Statement',
-                  source: 'STATEMENT',
-                  createdAt: new Date().toISOString(),
-                };
-
-                allNewTransactions.push(newTx);
-                addedFromStatement++;
-
-                // Add to match map so internal statement duplicates don't double-add
-                if (!slipMatchMap.has(key)) {
-                  slipMatchMap.set(key, []);
-                }
-                slipMatchMap.get(key)!.push({ id: txId, used: true, tx: newTx });
-              }
+            const totalsWarnings = checkStatementTotals(statement);
+            if (totalsWarnings.length > 0) {
+              console.warn(`[Statement Email Sync] ${filename}: parsed rows differ from the header (${totalsWarnings.join('; ')})`);
             }
 
-            // Mark this statement file as processed in DB
-            await markStatementProcessed({
+            totalStatementTransactions += statement.transactions.length;
+            pending.push({
               fileId,
               fileName: filename,
               modifiedTime: parsed.date ? parsed.date.toISOString() : new Date().toISOString(),
-              transactionsCount: statementTxs.length,
+              account: statement.account,
+              parsed: statement,
             });
-
-            processedFiles++;
           }
         } catch (err: any) {
           console.error(`[Statement Email Sync] Error processing message UID ${uid}:`, err.message);
         }
       }
 
+      // Slip-first deduplication against every row in the sheet, per account
+      const plan = planStatementImport(
+        existingTransactions,
+        pending.map(p => ({ account: p.account, transactions: p.parsed.transactions })),
+      );
+      const now = new Date().toISOString();
+      const allNewTransactions: Transaction[] = plan.toAppend.map(row => ({
+        id: `stm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        ...row,
+        source: 'STATEMENT',
+        createdAt: now,
+      }));
+      const matchedWithSlip = plan.matched;
+      const addedFromStatement = allNewTransactions.length;
+
       // Append all genuinely new statement transactions to Google Sheets
       if (allNewTransactions.length > 0) {
         await appendTransactionRows(allNewTransactions);
       }
 
-      const msg = processedFiles > 0
-        ? `ซิงค์ e-Statement สำเร็จ: ตรวจพบ ${processedFiles} ไฟล์, รายการตรงกับสลิป ${matchedWithSlip} รายการ (ใช้สลิปเป็นหลัก), บันทึกรายการใหม่เฉพาะ Statement ${addedFromStatement} รายการ`
+      // Only after the rows are in the sheet: mark the files and store their closing balances
+      for (const p of pending) {
+        await markStatementProcessed({
+          fileId: p.fileId,
+          fileName: p.fileName,
+          modifiedTime: p.modifiedTime,
+          transactionsCount: p.parsed.transactions.length,
+        });
+        await recordStatementAnchor(p.account, p.parsed, p.fileId);
+      }
+      const processedFiles = pending.length;
+
+      const baseMsg = processedFiles > 0
+        ? `ซิงค์ e-Statement สำเร็จ: ตรวจพบ ${processedFiles} ไฟล์ (${[...new Set(pending.map(p => p.account))].join(', ')}), รายการตรงกับสลิป ${matchedWithSlip} รายการ (ใช้สลิปเป็นหลัก), บันทึกรายการใหม่เฉพาะ Statement ${addedFromStatement} รายการ`
         : skippedFiles > 0
         ? `e-Statement เป็นปัจจุบันแล้ว (ข้าม ${skippedFiles} ไฟล์ที่เคยประมวลผลแล้ว)`
         : 'ไม่พบไฟล์ e-Statement ใหม่';
+      const msg = unknownAccountFiles.length > 0
+        ? `${baseMsg} · ข้าม ${unknownAccountFiles.length} ไฟล์ของบัญชีที่ไม่รู้จัก`
+        : baseMsg;
 
       return {
         success: true,
@@ -231,6 +262,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
         totalStatementTransactions,
         matchedWithSlip,
         addedFromStatement,
+        unknownAccountFiles: unknownAccountFiles.length > 0 ? unknownAccountFiles : undefined,
         skipped: processedFiles === 0 && skippedFiles > 0,
         newTransactions: allNewTransactions.map(tx => ({
           date: tx.date,

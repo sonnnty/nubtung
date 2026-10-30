@@ -81,6 +81,22 @@ export default function SummaryCards({
     summary?.totalCashInAccounts ??
     Object.values(resolvedAccountBalances).reduce((sum, val) => sum + val, 0);
 
+  // Accounts whose balance starts from an imported e-statement's closing balance
+  const balanceAsOf = overallSummary?.accountBalanceAsOf || summary?.accountBalanceAsOf || {};
+  const renderAsOf = (account: string) => {
+    const periodEnd = balanceAsOf[account];
+    if (!periodEnd) return null;
+    const [, m, d] = periodEnd.split('-');
+    return (
+      <span
+        className="text-[8px] sm:text-[9px] text-emerald-100/80 font-medium block leading-tight"
+        title={`ยอดตาม statement ${d}/${m} + รายการหลังจากนั้น`}
+      >
+        ตาม statement {d}/{m} + รายการใหม่
+      </span>
+    );
+  };
+
   const kplusBal = resolvedAccountBalances['K PLUS'] ?? 43253.07;
   const makeBal = resolvedAccountBalances['Make by KBank'] ?? 3672.29;
   const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 195.44;
@@ -109,10 +125,12 @@ export default function SummaryCards({
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🔵 K PLUS</span>
             <span className="text-xs sm:text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            {renderAsOf('K PLUS')}
           </div>
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🟡 Make</span>
             <span className="text-xs sm:text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            {renderAsOf('Make by KBank')}
           </div>
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>

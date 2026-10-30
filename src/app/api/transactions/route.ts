@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure, normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
+import { computeAccountBalances } from '@/lib/balance/account-balances';
+import { getStatementBalances, type StatementBalance } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -26,71 +28,15 @@ export async function GET() {
       }
     }
 
-    // Verified baseline balances as of 2026-09-04
-    const dynamicAccountBalances: Record<string, number> = {
-      'K PLUS': 43253.07,
-      'Make by KBank': 3672.29,
-      'เป๋าตัง': 195.44,
-      'เงินสด': 0.00,
-    };
-
-    // Calculate real-time dynamic balance updates from transactions dated >= 2026-09-04
-    for (const tx of transactions) {
-      if (tx.date >= '2026-09-04') {
-        const acc = tx.account || 'เงินสด';
-        if (dynamicAccountBalances[acc] === undefined) {
-          dynamicAccountBalances[acc] = 0;
-        }
-
-        if (tx.type === 'INCOME') {
-          dynamicAccountBalances[acc] += tx.amount;
-        } else if (tx.type === 'EXPENSE') {
-          dynamicAccountBalances[acc] -= tx.amount;
-        } else if (tx.type === 'TRANSFER') {
-          // Deduct from sender account
-          const fromAcc = tx.account || 'เงินสด';
-          dynamicAccountBalances[fromAcc] = (dynamicAccountBalances[fromAcc] || 0) - tx.amount;
-
-          // Credit to destination account
-          const note = (tx.note || '').toLowerCase();
-          const paotangAccountNo = (process.env.PAOTANG_ACCOUNT_NO || '9289').toLowerCase();
-
-          let toAcc: string | null = null;
-          if (note.includes('ไปยัง k plus') || note.includes('เข้า k plus') || note.includes('to k plus') || note.includes('ฝากเงินเข้า k plus')) {
-            toAcc = 'K PLUS';
-          } else if (note.includes('ไปยัง make') || note.includes('เข้า make') || note.includes('to make') || note.includes('ฝากเงินเข้า make')) {
-            toAcc = 'Make by KBank';
-          } else if (note.includes('ไปยัง เป๋าตัง') || note.includes('เข้า เป๋าตัง') || note.includes('to paotang') || note.includes('เติมเงิน g-wallet')) {
-            toAcc = 'เป๋าตัง';
-          } else if (note.includes('ไปยัง เงินสด') || note.includes('เข้า เงินสด') || note.includes('ถอนเงินสด') || note.includes('to cash') || note.includes('ถอน atm')) {
-            toAcc = 'เงินสด';
-          } else if (
-            note.includes(paotangAccountNo) ||
-            note.includes('เป๋าตัง') ||
-            note.includes('g-wallet') ||
-            note.includes('ktb g-wallet')
-          ) {
-            toAcc = 'เป๋าตัง';
-          } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
-            toAcc = 'Make by KBank';
-          } else if (note.includes('k plus') || note.includes('k+') || (!!process.env.KPLUS_ACCOUNT_NO && note.includes(process.env.KPLUS_ACCOUNT_NO)) || note.includes('กสิกร')) {
-            toAcc = 'K PLUS';
-          } else if (note.includes('เงินสด') && fromAcc !== 'เงินสด') {
-            toAcc = 'เงินสด';
-          }
-
-          // Slips between my two KBank accounts often only say "โอนระหว่างบัญชี"; the other side is implied
-          if (!toAcc && note.trim() === 'โอนระหว่างบัญชี') {
-            if (fromAcc === 'K PLUS') toAcc = 'Make by KBank';
-            else if (fromAcc === 'Make by KBank') toAcc = 'K PLUS';
-          }
-
-          if (toAcc) {
-            dynamicAccountBalances[toAcc] = (dynamicAccountBalances[toAcc] || 0) + tx.amount;
-          }
-        }
-      }
+    // Baseline balances as of 2026-09-04, or the newest statement's closing balance (ยอดยกไป) per account,
+    // plus every transaction after that
+    let anchors: StatementBalance[] = [];
+    try {
+      anchors = await getStatementBalances();
+    } catch (err: unknown) {
+      console.error('Error reading statement balances, using the 2026-09-04 baseline only:', err instanceof Error ? err.message : err);
     }
+    const { balances: dynamicAccountBalances, asOf: accountBalanceAsOf } = computeAccountBalances(transactions, anchors);
 
     const totalCashInAccounts = Object.values(dynamicAccountBalances).reduce((sum, b) => sum + b, 0);
 
@@ -103,6 +49,7 @@ export async function GET() {
       categoryBreakdown,
       recentTransactions: transactions.slice(0, 10),
       accountBalances: dynamicAccountBalances,
+      accountBalanceAsOf,
       totalCashInAccounts,
     };
 

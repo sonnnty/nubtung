@@ -69,6 +69,7 @@ export async function initSchema(): Promise<void> {
     );
   `);
 
+  await initStatementBalancesSchema();
   await initMortgageSchema();
 }
 
@@ -237,6 +238,68 @@ export async function markStatementProcessed(data: {
       data.transactionsCount ?? 0,
     ]
   );
+}
+
+// Closing balance (ยอดยกไป) of the newest imported e-statement per account. The dashboard
+// starts that account's balance from it instead of the hard-coded 2026-09-04 baseline.
+let statementBalancesSchemaPromise: Promise<void> | null = null;
+
+export function initStatementBalancesSchema(): Promise<void> {
+  if (!statementBalancesSchemaPromise) {
+    statementBalancesSchemaPromise = query(`
+      CREATE TABLE IF NOT EXISTS statement_balances (
+        account VARCHAR(100) PRIMARY KEY,
+        period_end VARCHAR(10) NOT NULL,
+        closing_balance NUMERIC(15, 2) NOT NULL,
+        file_id VARCHAR(255),
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `).then(() => undefined, (err) => {
+      statementBalancesSchemaPromise = null;
+      throw err;
+    });
+  }
+  return statementBalancesSchemaPromise;
+}
+
+export interface StatementBalance {
+  account: string;
+  /** YYYY-MM-DD, last day the statement covers */
+  periodEnd: string;
+  closingBalance: number;
+  fileId: string | null;
+  updatedAt: string;
+}
+
+/** Saves a statement's closing balance unless a statement with a later period end is already stored */
+export async function upsertStatementBalance(data: {
+  account: string;
+  periodEnd: string;
+  closingBalance: number;
+  fileId?: string;
+}): Promise<void> {
+  await initStatementBalancesSchema();
+  await query(
+    `INSERT INTO statement_balances (account, period_end, closing_balance, file_id)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (account) DO UPDATE SET
+       period_end = EXCLUDED.period_end,
+       closing_balance = EXCLUDED.closing_balance,
+       file_id = EXCLUDED.file_id,
+       updated_at = CURRENT_TIMESTAMP
+     WHERE EXCLUDED.period_end >= statement_balances.period_end`,
+    [data.account, data.periodEnd, data.closingBalance, data.fileId ?? null]
+  );
+}
+
+export async function getStatementBalances(): Promise<StatementBalance[]> {
+  await initStatementBalancesSchema();
+  const res = await query<StatementBalance>(
+    `SELECT account, period_end as "periodEnd", closing_balance::float as "closingBalance",
+            file_id as "fileId", updated_at::text as "updatedAt"
+     FROM statement_balances ORDER BY account ASC`
+  );
+  return res.rows;
 }
 
 export interface UserRow {
