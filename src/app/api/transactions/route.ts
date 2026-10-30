@@ -73,10 +73,16 @@ export async function GET() {
             toAcc = 'เป๋าตัง';
           } else if (note.includes('2996') || note.includes('make by kbank') || note.includes('make')) {
             toAcc = 'Make by KBank';
-          } else if (note.includes('k plus') || (!!process.env.KPLUS_ACCOUNT_NO && note.includes(process.env.KPLUS_ACCOUNT_NO)) || note.includes('กสิกร')) {
+          } else if (note.includes('k plus') || note.includes('k+') || (!!process.env.KPLUS_ACCOUNT_NO && note.includes(process.env.KPLUS_ACCOUNT_NO)) || note.includes('กสิกร')) {
             toAcc = 'K PLUS';
           } else if (note.includes('เงินสด') && fromAcc !== 'เงินสด') {
             toAcc = 'เงินสด';
+          }
+
+          // Slips between my two KBank accounts often only say "โอนระหว่างบัญชี"; the other side is implied
+          if (!toAcc && note.trim() === 'โอนระหว่างบัญชี') {
+            if (fromAcc === 'K PLUS') toAcc = 'Make by KBank';
+            else if (fromAcc === 'Make by KBank') toAcc = 'K PLUS';
           }
 
           if (toAcc) {

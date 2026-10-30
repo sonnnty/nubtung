@@ -115,12 +115,19 @@ function finalizeTx(raw: any): StatementTransaction {
     }
   }
 
+  // A deposit from one of my own accounts that the dashboard doesn't track (e.g. GHB)
+  // is new money for K PLUS. Recording it as TRANSFER makes the balance calc deduct it
+  // from K PLUS instead, so keep it as INCOME under the (tax-exempt) transfer category.
+  const isFromUntrackedOwnAccount = isSelf && isDeposit && !isFromTrackedAccount(detailText);
+
   let type: 'EXPENSE' | 'INCOME' | 'TRANSFER' = isDeposit ? 'INCOME' : 'EXPENSE';
-  if (isSelf) {
+  if (isSelf && !isFromUntrackedOwnAccount) {
     type = 'TRANSFER';
   }
 
-  const category = categorizeStatementRow(raw.typeDesc, raw.rawRest, type);
+  const category = isFromUntrackedOwnAccount
+    ? 'โอนระหว่างบัญชี'
+    : categorizeStatementRow(raw.typeDesc, raw.rawRest, type);
 
   return {
     date: raw.date,
@@ -133,6 +140,17 @@ function finalizeTx(raw: any): StatementTransaction {
     details: `${raw.typeDesc}: ${raw.rawRest}`,
     balance: raw.balance,
   };
+}
+
+// Accounts besides K PLUS whose balances the dashboard tracks (Make by KBank, เป๋าตัง)
+function isFromTrackedAccount(detailText: string): boolean {
+  const makeLast4 = (process.env.MAKE_ACCOUNT_NO || '2996').slice(-4);
+  const paotangLast4 = (process.env.PAOTANG_ACCOUNT_NO || '9289').slice(-4);
+  return (
+    /make by kbank|g-wallet|เป๋าตัง/i.test(detailText) ||
+    detailText.includes(`x${makeLast4}`) ||
+    detailText.includes(`x${paotangLast4}`)
+  );
 }
 
 function categorizeStatementRow(txDesc: string, rest: string, type: 'EXPENSE' | 'INCOME' | 'TRANSFER'): string {
