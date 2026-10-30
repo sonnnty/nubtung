@@ -44,6 +44,7 @@ cp .env.example .env.local
 - `GEMINI_API_KEY`: API Key ฟรีจาก [Google AI Studio](https://aistudio.google.com)
 - `OWN_ACCOUNT_NAMES`: ชื่อ-นามสกุลของคุณ หรือชื่อบัญชี (คั่นด้วยจุลภาค) สำหรับตรวจจับสลิปโอนเงินข้ามบัญชี
 - `ADMIN_PASSWORD`: รหัสผ่านสำหรับเข้าสู่ระบบ (ค่าเริ่มต้น: `nubtang1234`)
+- `KPLUS_ACCOUNT_NO` / `MAKE_ACCOUNT_NO` / `PAOTANG_ACCOUNT_NO`: เลขบัญชี (ใช้ 4 ตัวท้าย, ค่าเริ่มต้น 6651 / 2996 / 9289) ใช้แยกว่า e-Statement `STM_SA<4 ตัวท้าย>_...pdf` เป็นของบัญชีไหน และตรวจจับการโอนระหว่างบัญชีของตัวเอง — Statement ของบัญชีที่ไม่รู้จักจะถูกข้าม
 
 ---
 
@@ -84,4 +85,10 @@ npm run dev
 ```bash
 npm run build
 npm start
+```
+
+### รันเทสต์:
+เทสต์คือไฟล์ `*.test.ts` ข้างโค้ด ใช้ test runner ของ Node (ต้องเป็น Node ที่รองรับ TypeScript type stripping):
+```bash
+node --test --experimental-strip-types src/lib/statement/*.test.ts src/lib/balance/*.test.ts
 ```
