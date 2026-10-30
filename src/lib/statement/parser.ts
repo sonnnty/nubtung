@@ -4,12 +4,10 @@ import path from 'path';
 import { google } from 'googleapis';
 import { getGoogleAuth } from '@/lib/google/auth';
 import { getSpreadsheetId, getSheetsClient } from '@/lib/google/sheets';
-import { parseStatementText, parseStatement, checkStatementTotals, type StatementTransaction, type ParsedStatement } from '@/lib/statement/statement-text';
+import { parseStatement, checkStatementTotals, type ParsedStatement } from '@/lib/statement/statement-text';
 import { last4FromStatementFileName, last4FromStatementHeader } from '@/lib/statement/accounts';
 import { reconcileStatementRows, type SheetRow, type StatementImport } from '@/lib/statement/import-plan';
 import { recordStatementAnchor } from '@/lib/statement/anchor';
-
-export { parseStatementText, parseStatement, type StatementTransaction } from '@/lib/statement/statement-text';
 
 /** Runs `pdftotext -layout` on a (password-protected) KBank statement PDF and returns its text */
 export function extractStatementText(pdfBuffer: Buffer, password?: string): string {
@@ -33,11 +31,6 @@ export function extractStatementText(pdfBuffer: Buffer, password?: string): stri
       fs.unlinkSync(tempFilePath);
     }
   }
-}
-
-/** Parses a statement PDF as K PLUS. Kept for callers that only handle K PLUS statements. */
-export function parseStatementPdf(pdfBuffer: Buffer, password?: string): StatementTransaction[] {
-  return parseStatementText(extractStatementText(pdfBuffer, password));
 }
 
 import { isStatementProcessed, markStatementProcessed } from '@/lib/db';
@@ -155,7 +148,7 @@ export async function syncStatementsFromDrive(forceRefresh = false) {
       md5Checksum: file.md5Checksum || undefined,
       transactionsCount: allFinalRows.length,
     });
-    await recordStatementAnchor(account, parsed, file.id!);
+    await recordStatementAnchor(account, parsed, file.id!, file.modifiedTime || undefined);
   }
 
   const accountSummary = Object.entries(result.perAccount)

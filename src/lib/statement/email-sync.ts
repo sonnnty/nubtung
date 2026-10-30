@@ -165,7 +165,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
                 const known = account ? anchorPeriodEnds.get(account) : undefined;
                 if (account && periodEnd && (!known || periodEnd > known)) {
                   const text = readStatementText(att.content, passwordCandidates);
-                  if (text && await recordStatementAnchor(account, parseStatement(text, filename), fileId)) {
+                  if (text && await recordStatementAnchor(account, parseStatement(text, filename), fileId, parsed.date?.toISOString())) {
                     anchorPeriodEnds.set(account, periodEnd);
                   }
                 }
@@ -241,7 +241,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
           modifiedTime: p.modifiedTime,
           transactionsCount: p.parsed.transactions.length,
         });
-        await recordStatementAnchor(p.account, p.parsed, p.fileId);
+        await recordStatementAnchor(p.account, p.parsed, p.fileId, p.modifiedTime);
       }
       const processedFiles = pending.length;
 
