@@ -81,19 +81,76 @@ export default function SummaryCards({
     summary?.totalCashInAccounts ??
     Object.values(resolvedAccountBalances).reduce((sum, val) => sum + val, 0);
 
-  // Accounts whose balance starts from an imported e-statement's closing balance
+  // Accounts whose balance starts from an imported e-statement's closing balance, or a KBank Live card
   const balanceAsOf = overallSummary?.accountBalanceAsOf || summary?.accountBalanceAsOf || {};
-  const renderAsOf = (account: string) => {
-    const periodEnd = balanceAsOf[account];
-    if (!periodEnd) return null;
-    const [, m, d] = periodEnd.split('-');
+  const balanceGaps = overallSummary?.accountBalanceGaps || summary?.accountBalanceGaps || {};
+  const cardTimes = overallSummary?.accountCardTimes || summary?.accountCardTimes || {};
+
+  const formatMoney = (amount: number) =>
+    amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const renderCardStatus = (account: string) => {
+    const cardTime = cardTimes[account];
+    const gap = balanceGaps[account];
+
+    if (!cardTime || gap === null || gap === undefined) {
+      const periodEnd = balanceAsOf[account];
+      const [, m, d] = periodEnd ? periodEnd.split('-') : [];
+      return (
+        <div className="mt-0.5 space-y-0.5">
+          {periodEnd && (
+            <span
+              className="text-[8px] sm:text-[9px] text-emerald-100/80 font-medium block leading-tight"
+              title={`ยอดตาม statement ${d}/${m} + รายการหลังจากนั้น`}
+            >
+              ตาม statement {d}/{m} + รายการใหม่
+            </span>
+          )}
+          <span
+            className="text-[8px] sm:text-[9px] text-emerald-100/75 font-medium block leading-tight"
+            title="ยังไม่มีการ์ด KBank Live จากแชต LINE"
+          >
+            ส่วนต่าง —
+          </span>
+        </div>
+      );
+    }
+
+    const [datePart = '', timePart = ''] = cardTime.split(' ');
+    const [, m, d] = datePart.split('-');
+    const whenLabel = d && m ? `${d}/${m} ${timePart}` : cardTime;
+
     return (
-      <span
-        className="text-[8px] sm:text-[9px] text-emerald-100/80 font-medium block leading-tight"
-        title={`ยอดตาม statement ${d}/${m} + รายการหลังจากนั้น`}
-      >
-        ตาม statement {d}/{m} + รายการใหม่
-      </span>
+      <div className="mt-0.5 space-y-0.5">
+        <span
+          className="text-[8px] sm:text-[9px] text-emerald-100/85 font-medium block leading-tight"
+          title={`ยอดจากการ์ด KBank Live ในแชต LINE เมื่อ ${whenLabel} น.`}
+        >
+          จากแชต {whenLabel} น.
+        </span>
+        {gap === 0 ? (
+          <span
+            className="text-[8px] sm:text-[9px] text-emerald-100/90 font-medium block leading-tight"
+            title="ยอดในสมุดบัญชีตรงกับยอดในการ์ดแชต LINE (ส่วนต่าง ฿0.00)"
+          >
+            ตรงกับบัญชี (฿0.00)
+          </span>
+        ) : gap > 0 ? (
+          <span
+            className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
+            title={`ยอดในสมุดบัญชีมากกว่าแชต +฿${formatMoney(gap)} (อาจมีรายจ่ายตกหล่น)`}
+          >
+            บัญชีเกิน +฿{formatMoney(gap)}
+          </span>
+        ) : (
+          <span
+            className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
+            title={`ยอดในสมุดบัญชีน้อยกว่าแชต -฿${formatMoney(Math.abs(gap))} (อาจมีรายจ่ายซ้ำหรือรายรับตกหล่น)`}
+          >
+            บัญชีขาด -฿{formatMoney(Math.abs(gap))}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -115,30 +172,30 @@ export default function SummaryCards({
               เงินในบัญชีจริงและเงินสดทั้งหมด (Total Cash)
             </span>
             <span className="text-xl sm:text-3xl font-extrabold tracking-tight">
-              ฿{resolvedTotalCash.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ฿{formatMoney(resolvedTotalCash)}
             </span>
           </div>
         </div>
 
         {/* Dynamic Breakdown by Bank / Account (2x2 on mobile, flex row on desktop) */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 pt-1 sm:pt-0 w-full sm:w-auto">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch gap-1.5 sm:gap-2 pt-1 sm:pt-0 w-full sm:w-auto">
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🔵 K PLUS</span>
-            <span className="text-xs sm:text-sm font-bold">฿{kplusBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
-            {renderAsOf('K PLUS')}
+            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(kplusBal)}</span>
+            {renderCardStatus('K PLUS')}
           </div>
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🟡 Make</span>
-            <span className="text-xs sm:text-sm font-bold">฿{makeBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
-            {renderAsOf('Make by KBank')}
+            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(makeBal)}</span>
+            {renderCardStatus('Make by KBank')}
           </div>
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
-            <span className="text-xs sm:text-sm font-bold">฿{paotangBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(paotangBal)}</span>
           </div>
           <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
             <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">💵 เงินสด</span>
-            <span className="text-xs sm:text-sm font-bold">฿{cashBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(cashBal)}</span>
           </div>
         </div>
       </div>
