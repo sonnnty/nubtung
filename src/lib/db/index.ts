@@ -82,6 +82,23 @@ export async function isSlipProcessed(driveFileId: string): Promise<boolean> {
 }
 
 /**
+ * Slips not to OCR again: everything recorded, except FAILED ones from the last day. A transient
+ * Gemini or Drive error must not leave a LINE row unmatched forever, but a file that can never be
+ * read must not retry forever either.
+ */
+export async function getSettledSlipIds(driveFileIds: string[]): Promise<Set<string>> {
+  if (!driveFileIds || driveFileIds.length === 0) return new Set();
+
+  const res = await query(
+    `SELECT drive_file_id FROM processed_slips
+     WHERE drive_file_id = ANY($1)
+       AND NOT (status = 'FAILED' AND created_at >= NOW() - INTERVAL '1 day')`,
+    [driveFileIds]
+  );
+  return new Set(res.rows.map((r) => r.drive_file_id));
+}
+
+/**
  * Returns a Set of drive_file_ids that are already recorded in the database
  */
 export async function getProcessedSlipIds(driveFileIds: string[]): Promise<Set<string>> {
