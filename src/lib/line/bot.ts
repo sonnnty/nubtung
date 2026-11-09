@@ -1,5 +1,5 @@
 import { messagingApi } from '@line/bot-sdk';
-import { appendTransactionRow, getAllTransactions, ensureSheetStructure } from '@/lib/google/sheets';
+import { appendTransactionRow, getAllTransactions } from '@/lib/db/transactions';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
@@ -168,7 +168,6 @@ async function handleTextMessage(replyToken: string, text: string) {
         createdAt: new Date().toISOString(),
       };
 
-      await ensureSheetStructure();
       await appendTransactionRow(newTx);
 
       if (type === 'TRANSFER') {
@@ -231,7 +230,6 @@ async function handleTextMessage(replyToken: string, text: string) {
         createdAt: new Date().toISOString(),
       };
 
-      await ensureSheetStructure();
       await appendTransactionRow(newTx);
 
       const emoji = type === 'INCOME' ? '🟢' : '🔴';
@@ -302,7 +300,6 @@ async function handleImageMessage(replyToken: string, messageId: string) {
       createdAt: now.toISOString(),
     };
 
-    await ensureSheetStructure();
     await appendTransactionRow(newTx);
 
     const emoji = slipData.type === 'INCOME' ? '🟢' : slipData.type === 'TRANSFER' ? '🔄' : '🔴';

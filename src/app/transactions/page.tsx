@@ -52,7 +52,7 @@ export default function TransactionsPage() {
               รายการธุรกรรมทั้งหมด (Transactions)
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1">
-              ข้อมูลทั้งหมดในแท็บ '📝 รายการทั้งหมด' บน Google Sheets สามารถค้นหา กรอง และดูสลิปได้
+              ค้นหา กรอง และดูสลิปของทุกรายการได้ที่นี่ (Google Sheet เป็นสำเนาสำหรับให้คนอื่นดู)
             </p>
           </div>
 

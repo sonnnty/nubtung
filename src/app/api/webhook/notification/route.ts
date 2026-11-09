@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
+import { appendTransactionRow } from '@/lib/db/transactions';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
 import { parseNotificationText } from '@/lib/line/notification-text';
@@ -116,8 +116,6 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    // Ensure sheet structure and append
-    await ensureSheetStructure();
     await appendTransactionRow(newTx);
 
     // Record in DB cache for deduplication

@@ -1,29 +1,29 @@
-// Runs a card or a slip batch through the ledger rules. Everything outside (sheet, Postgres, lock)
-// comes in through LedgerStore, so the whole flow is tested without either.
+// Runs a card or a slip batch through the ledger rules. Everything outside (Postgres, lock)
+// comes in through LedgerStore, so the whole flow is tested without it.
 // No `@/` imports here: this module is loaded directly by the node test runner.
 import { createHash } from 'node:crypto';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { parseCard } from './kbank-card.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import { alertsResolvedBy, checkContinuity, isFingerprinted, planCardIngest, planSlipReconcile, rowFingerprint } from './reconcile.ts';
+import { alertsResolvedBy, checkContinuity, planCardIngest, planSlipReconcile } from './reconcile.ts';
 import type { KBankCard, RawCard } from './kbank-card.ts';
 import type {
-  AppendOp, DeleteOp, LedgerOp, LedgerView, LineAlert, LineRow, RowFingerprint, SlipFact, SlipOutcome, SlipResult, StoredCard, UpdateOp,
+  AppendOp, DeleteOp, LedgerOp, LedgerView, LineAlert, LineRow, SlipFact, SlipOutcome, SlipResult, StoredCard, UpdateOp,
 } from './reconcile.ts';
 
 export interface LedgerStore {
-  /** Serialises everything that reads the sheet to decide a write, across requests and processes */
+  /**
+   * One DB transaction serialising everything that reads rows to decide a write, across requests
+   * and processes. All writes of a run commit or roll back together.
+   */
   withLock<T>(fn: () => Promise<T>): Promise<T>;
   readRows(): Promise<LineRow[]>;
   findCard(key: string): Promise<StoredCard | null>;
   listCards(): Promise<StoredCard[]>;
   saveCard(card: KBankCard, txId: string): Promise<void>;
   relinkCards(links: Array<{ key: string; txId: string }>): Promise<void>;
-  readFingerprints(): Promise<Map<string, RowFingerprint>>;
-  prepareFingerprints(rows: Array<{ id: string; fingerprint: string }>): Promise<void>;
-  commitFingerprints(rows: Array<{ id: string; fingerprint: string }>): Promise<void>;
   appendRows(rows: LineRow[]): Promise<void>;
-  /** Find each row by id; must reject the whole call if a row is gone or no longer matches `expected` */
+  /** Find each row by id; must reject the whole call if a row is gone */
   updateRows(ops: UpdateOp[]): Promise<void>;
   deleteRows(ops: DeleteOp[]): Promise<void>;
   unappliedSlips(): Promise<SlipFact[]>;
@@ -33,23 +33,15 @@ export interface LedgerStore {
 }
 
 async function readView(store: LedgerStore): Promise<LedgerView> {
-  const [rows, cards, fingerprints] = await Promise.all([store.readRows(), store.listCards(), store.readFingerprints()]);
-  return { rows, cards, fingerprints };
+  // One after the other: inside the lock these share a single connection
+  const rows = await store.readRows();
+  const cards = await store.listCards();
+  return { rows, cards };
 }
 
-/**
- * Writes a plan in order (see the reconcile rules for why some orders matter). Each step re-finds
- * rows by id, so a shift from an earlier step cannot misdirect a later one. The fingerprint is
- * stored before the write and confirmed after it, so a crash in between does not read as a hand edit.
- */
+/** Writes a plan in order (see the reconcile rules for why some orders matter) */
 async function applyOps(store: LedgerStore, ops: LedgerOp[]): Promise<void> {
-  const owned = ops
-    .flatMap(o => (o.kind === 'delete' ? [] : [o.row]))
-    .filter(isFingerprinted)
-    .map(row => ({ id: row.id, fingerprint: rowFingerprint(row) }));
-  if (owned.length > 0) await store.prepareFingerprints(owned);
-
-  // Consecutive operations of one kind go out as one sheet call
+  // Consecutive operations of one kind go out as one call
   for (let i = 0; i < ops.length;) {
     const kind = ops[i].kind;
     let end = i;
@@ -60,8 +52,6 @@ async function applyOps(store: LedgerStore, ops: LedgerOp[]): Promise<void> {
     else await store.updateRows(batch as UpdateOp[]);
     i = end;
   }
-
-  if (owned.length > 0) await store.commitFingerprints(owned);
 }
 
 export type IngestResult =

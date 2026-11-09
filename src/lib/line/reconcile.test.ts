@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { ingestCard, reconcileSlips } from './ingest.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import { rowFingerprint, PENDING_CATEGORY } from './reconcile.ts';
+import { PENDING_CATEGORY } from './reconcile.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { resolveTransferDestination } from '../balance/transfer-destination.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
@@ -12,7 +12,7 @@ import { planStatementImport } from '../statement/import-plan.ts';
 import { computeAccountBalances } from '../balance/account-balances.ts';
 import type { LedgerStore } from './ingest.ts';
 import type { KBankCard } from './kbank-card.ts';
-import type { DeleteOp, LineAlert, LineRow, RowFingerprint, SlipFact, SlipResult, StoredCard, UpdateOp } from './reconcile.ts';
+import type { DeleteOp, LineAlert, LineRow, SlipFact, SlipResult, StoredCard, UpdateOp } from './reconcile.ts';
 
 const KPLUS = 'K PLUS';
 const MAKE = 'Make by KBank';
@@ -30,7 +30,6 @@ after(() => {
 class FakeStore implements LedgerStore {
   rows: LineRow[] = [];
   cards: StoredCard[] = [];
-  fingerprints = new Map<string, RowFingerprint>();
   slips = new Map<string, SlipFact>();
   applied = new Map<string, SlipResult>();
   alerts = new Map<string, LineAlert>();
@@ -65,17 +64,6 @@ class FakeStore implements LedgerStore {
   async relinkCards(links: Array<{ key: string; txId: string }>) {
     for (const link of links) this.cards.find(c => c.key === link.key)!.txId = link.txId;
   }
-  async readFingerprints() { return new Map(this.fingerprints); }
-  async prepareFingerprints(rows: Array<{ id: string; fingerprint: string }>) {
-    this.step('prepare');
-    for (const r of rows) {
-      const prev = this.fingerprints.get(r.id);
-      this.fingerprints.set(r.id, { fingerprint: prev?.fingerprint ?? null, pendingFingerprint: r.fingerprint });
-    }
-  }
-  async commitFingerprints(rows: Array<{ id: string; fingerprint: string }>) {
-    for (const r of rows) this.fingerprints.set(r.id, { fingerprint: r.fingerprint, pendingFingerprint: null });
-  }
   async appendRows(rows: LineRow[]) {
     this.step('append');
     this.rows.push(...rows.map(r => ({ ...r })));
@@ -85,7 +73,7 @@ class FakeStore implements LedgerStore {
     for (const op of ops) {
       const i = this.rows.findIndex(r => r.id === op.row.id);
       if (i < 0) throw new Error(`row gone: ${op.row.id}`);
-      if (rowFingerprint(this.rows[i]) !== op.expected) throw new Error(`row changed: ${op.row.id}`);
+      if (this.rows[i].editedAt) throw new Error(`row protected: ${op.row.id}`);
     }
     for (const op of ops) this.rows[this.rows.findIndex(r => r.id === op.row.id)] = { ...op.row };
   }
@@ -102,10 +90,10 @@ class FakeStore implements LedgerStore {
 
   addSlip(slip: SlipFact) { this.slips.set(slip.driveFileId, slip); }
   ledger() { return this.rows.map(r => `${r.account}|${r.type}|${r.amount}|${r.category}|${r.source}`).sort(); }
-  /** An edit made by a person, in the app or directly in the sheet */
+  /** An edit made by the owner in the web app */
   handEdit(id: string, patch: Partial<LineRow>) {
     const row = this.rows.find(r => r.id === id)!;
-    Object.assign(row, patch);
+    Object.assign(row, patch, { editedAt: '2026-11-09 21:30:00+07' });
   }
 }
 
@@ -560,8 +548,21 @@ describe('rows edited by hand', () => {
       }
       return rows;
     };
-    await assert.rejects(reconcileSlips(store), /row changed/);
+    await assert.rejects(reconcileSlips(store), /row protected/);
     assert.equal(single(store).note, 'แก้ระหว่างซิงค์');
+  });
+});
+
+describe('an unmatched self-transfer slip', () => {
+  it('stores the enriched note, so the receiving card attaches when it arrives later', async () => {
+    store.addSlip(selfTransferSlip('t', { amount: 500, receiverAccount: 'xxx-x-x6299-x' }));
+    const counts = await reconcileSlips(store);
+    assert.equal(counts.appended, 1);
+    assert.equal(resolveTransferDestination(single(store).note, single(store).account), MAKE);
+
+    const res = await ingestCard(inc(500, '1,500.00'), store);
+    assert.equal(res.status, 'attached');
+    assert.equal(store.rows.length, 1);
   });
 });
 
