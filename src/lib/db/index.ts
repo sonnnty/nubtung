@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { initMortgageSchema } from './mortgage.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { initTransactionsSchema } from './transactions.ts';
 
 // On globalThis, as in sync/jobs.ts: route bundles and instrumentation do not share module
 // instances, and there must be one pool and one transaction context for all of them
@@ -107,6 +109,7 @@ export async function initSchema(): Promise<void> {
 
   await initStatementBalancesSchema();
   await initMortgageSchema();
+  await initTransactionsSchema();
 }
 
 export async function isSlipProcessed(driveFileId: string): Promise<boolean> {

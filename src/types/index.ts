@@ -16,6 +16,8 @@ export interface Transaction {
   /** LINE: KBank Live card still waiting for its slip; LINE+SLIP: card reconciled with its slip */
   source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT' | 'LINE' | 'LINE+SLIP';
   createdAt: string;
+  /** Set when the owner changed this row in the web app; reconciliation must leave it alone */
+  editedAt?: string;
 }
 
 export interface SlipAnalysisResult {

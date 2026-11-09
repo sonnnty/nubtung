@@ -1,6 +1,8 @@
 // Postgres side of the LINE ledger: cards seen, slip facts, row fingerprints and alerts.
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { getPool, inTransaction, query, withTransaction } from './index.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { initTransactionsSchema } from './transactions.ts';
 import type { KBankCard } from '../line/kbank-card.ts';
 import type { LineAlert, RowFingerprint, SlipFact, SlipOutcome, StoredCard } from '../line/reconcile.ts';
 
@@ -87,6 +89,7 @@ export async function withLedgerLock<T>(fn: () => Promise<T>): Promise<T> {
   if (inTransaction()) return fn();
 
   await initLineLedgerSchema();
+  await initTransactionsSchema();
   return withTransaction(async () => {
     await query(`SET LOCAL lock_timeout = '60s'`);
     await query('SELECT pg_advisory_xact_lock($1)', [LEDGER_LOCK_KEY]);
