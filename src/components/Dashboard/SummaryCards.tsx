@@ -133,21 +133,21 @@ export default function SummaryCards({
             className="text-[8px] sm:text-[9px] text-emerald-100/90 font-medium block leading-tight"
             title="ยอดในสมุดบัญชีตรงกับยอดในการ์ดแชต LINE (ส่วนต่าง ฿0.00)"
           >
-            ตรงกับบัญชี (฿0.00)
+            ข้อมูลในระบบตรงกับธนาคาร (฿0.00)
           </span>
         ) : gap > 0 ? (
           <span
             className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
             title={`ยอดในสมุดบัญชีมากกว่าแชต +฿${formatMoney(gap)} (อาจมีรายจ่ายตกหล่น)`}
           >
-            บัญชีเกิน +฿{formatMoney(gap)}
+            ข้อมูลในระบบมากกว่าธนาคาร +฿{formatMoney(gap)}
           </span>
         ) : (
           <span
             className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
             title={`ยอดในสมุดบัญชีน้อยกว่าแชต -฿${formatMoney(Math.abs(gap))} (อาจมีรายจ่ายซ้ำหรือรายรับตกหล่น)`}
           >
-            บัญชีขาด -฿{formatMoney(Math.abs(gap))}
+            ข้อมูลในระบบน้อยกว่าธนาคาร -฿{formatMoney(Math.abs(gap))}
           </span>
         )}
       </div>
