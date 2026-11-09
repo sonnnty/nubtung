@@ -275,17 +275,17 @@ export interface SheetMirrorHealth {
 export async function getSheetMirrorHealth(): Promise<SheetMirrorHealth> {
   await initTransactionsSchema();
   const res = await query<{
-    migrated_at: string | null;
-    last_success_at: string | null;
+    migrated_at: Date | null;
+    last_success_at: Date | null;
     consecutive_failures: number;
     last_error: string | null;
-    next_attempt_at: string | null;
+    next_attempt_at: Date | null;
     pending: string;
-    oldest: string | null;
+    oldest: Date | null;
     stuck: boolean;
   }>(
-    `SELECT s.migrated_at::text, s.last_success_at::text, s.consecutive_failures, s.last_error, s.next_attempt_at::text,
-            o.pending, o.oldest::text,
+    `SELECT s.migrated_at, s.last_success_at, s.consecutive_failures, s.last_error, s.next_attempt_at,
+            o.pending, o.oldest,
             COALESCE(o.oldest < NOW() - ($1 || ' minutes')::INTERVAL, FALSE) as stuck
      FROM sheet_mirror_state s,
           LATERAL (SELECT count(*) as pending, min(created_at) as oldest FROM sheet_outbox) o
@@ -301,11 +301,11 @@ export async function getSheetMirrorHealth(): Promise<SheetMirrorHealth> {
   else if (pending > 0) state = 'pending';
   return {
     state,
-    lastMirroredAt: row.last_success_at,
+    lastMirroredAt: row.last_success_at?.toISOString() ?? null,
     pending,
-    oldestPendingAt: row.oldest,
+    oldestPendingAt: row.oldest?.toISOString() ?? null,
     consecutiveFailures: row.consecutive_failures,
     lastError: row.last_error,
-    nextAttemptAt: row.next_attempt_at,
+    nextAttemptAt: row.next_attempt_at?.toISOString() ?? null,
   };
 }

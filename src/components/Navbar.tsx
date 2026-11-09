@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Wallet, LayoutDashboard, ListOrdered, Calculator, Home, LogOut } from 'lucide-react';
 import SyncButton from './SyncButton';
 import ThemeToggle from './ThemeToggle';
+import SheetMirrorStatus from './SheetMirrorStatus';
 
 export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void }) {
   const pathname = usePathname();
@@ -62,6 +63,8 @@ export default function Navbar({ onSyncComplete }: { onSyncComplete?: () => void
 
           {/* Right Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
+            <SheetMirrorStatus />
+
             {/* Sync button for all screens (icon only on mobile, text on desktop) */}
             <SyncButton onSyncComplete={onSyncComplete} />
 
