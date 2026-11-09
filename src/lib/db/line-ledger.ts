@@ -1,10 +1,10 @@
 // Postgres side of the LINE ledger: cards seen, slip facts, row fingerprints and alerts.
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import { getPool, query } from './index.ts';
+import { getPool, inTransaction, query, withTransaction } from './index.ts';
 import type { KBankCard } from '../line/kbank-card.ts';
 import type { LineAlert, RowFingerprint, SlipFact, SlipOutcome, StoredCard } from '../line/reconcile.ts';
 
-/** Arbitrary but fixed key of the Postgres advisory lock guarding sheet reads that decide a write */
+/** Arbitrary but fixed key of the Postgres advisory lock serialising everything that writes the ledger */
 const LEDGER_LOCK_KEY = 736401;
 /** Cards older than this cannot match a new card or slip any more */
 const CARD_LOOKBACK_DAYS = 60;
@@ -13,7 +13,8 @@ let schemaPromise: Promise<void> | null = null;
 
 export function initLineLedgerSchema(): Promise<void> {
   if (!schemaPromise) {
-    schemaPromise = query(`
+    // On the pool, never a caller's transaction: a rollback must not undo the memoized schema
+    schemaPromise = getPool().query(`
       CREATE TABLE IF NOT EXISTS line_cards (
         card_key TEXT PRIMARY KEY,
         seq BIGSERIAL,
@@ -75,26 +76,22 @@ export function initLineLedgerSchema(): Promise<void> {
 }
 
 /**
- * Runs `fn` while holding the ledger lock, so everything that reads the sheet to decide a write
- * (cards, slip reconciliation, statement import, row edits) runs one at a time, across processes too.
+ * Runs `fn` as one DB transaction holding the ledger lock, so everything that reads rows to decide a
+ * write (cards, slip reconciliation, statement import, row edits) runs one at a time, across
+ * processes too, and all of it commits or rolls back together. Every `query` inside runs on the
+ * lock's own client (see withTransaction), so a waiter never needs a second pooled connection.
  * It is a transaction-scoped advisory lock: Postgres releases it if this process dies. Waiting is
  * bounded so a stuck holder surfaces as an error instead of hanging the webhook.
  */
 export async function withLedgerLock<T>(fn: () => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(`SET LOCAL lock_timeout = '60s'`);
-    await client.query('SELECT pg_advisory_xact_lock($1)', [LEDGER_LOCK_KEY]);
-    const result = await fn();
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw err;
-  } finally {
-    client.release();
-  }
+  if (inTransaction()) return fn();
+
+  await initLineLedgerSchema();
+  return withTransaction(async () => {
+    await query(`SET LOCAL lock_timeout = '60s'`);
+    await query('SELECT pg_advisory_xact_lock($1)', [LEDGER_LOCK_KEY]);
+    return fn();
+  });
 }
 
 const CARD_COLUMNS = `card_key as key, seq::float as seq, account, txn_date as date, txn_time as time, direction,

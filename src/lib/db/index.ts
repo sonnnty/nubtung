@@ -1,10 +1,18 @@
-import { Pool, type QueryResult, type QueryResultRow } from 'pg';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { initMortgageSchema } from './mortgage.ts';
 
-let poolInstance: Pool | null = null;
+// On globalThis, as in sync/jobs.ts: route bundles and instrumentation do not share module
+// instances, and there must be one pool and one transaction context for all of them
+const globalForDb = globalThis as unknown as {
+  __nubtangPool?: Pool;
+  __nubtangTx?: AsyncLocalStorage<PoolClient>;
+};
+const txContext = (globalForDb.__nubtangTx ??= new AsyncLocalStorage<PoolClient>());
 
 export function getPool(): Pool {
+  let poolInstance = globalForDb.__nubtangPool;
   if (!poolInstance) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
@@ -21,6 +29,7 @@ export function getPool(): Pool {
     poolInstance.on('error', (err) => {
       console.error('[DB] Unexpected error on idle database client', err);
     });
+    globalForDb.__nubtangPool = poolInstance;
   }
 
   return poolInstance;
@@ -30,8 +39,35 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[]
 ): Promise<QueryResult<T>> {
-  const pool = getPool();
-  return pool.query<T>(text, params);
+  const client = txContext.getStore();
+  if (client) return client.query<T>(text, params);
+  return getPool().query<T>(text, params);
+}
+
+export function inTransaction(): boolean {
+  return txContext.getStore() !== undefined;
+}
+
+/**
+ * Runs `fn` in one DB transaction: every `query` it makes, however deep, runs on this transaction's
+ * own client, so it commits or rolls back as a whole and never needs a second pooled connection.
+ * Joins the surrounding transaction when there is one.
+ */
+export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (txContext.getStore()) return fn();
+
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await txContext.run(client, fn);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function initSchema(): Promise<void> {
