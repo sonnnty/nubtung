@@ -28,6 +28,8 @@ interface TransactionTableProps {
   onRefresh?: () => void;
 }
 
+const PENDING_CATEGORY = 'รอระบุ';
+
 const CATEGORIES = [
   'อาหารและเครื่องดื่ม',
   'ของใช้ในบ้าน/ซูเปอร์',
@@ -60,6 +62,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     modalId: 'edit-note-tx',
   });
   const [editNoteText, setEditNoteText] = useState('');
+  const [editNoteCategory, setEditNoteCategory] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
 
   // Full Edit Modal (for Manual transactions)
@@ -86,7 +89,9 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         (tx.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tx.account || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchType = selectedType === 'ALL' || tx.type === selectedType;
+      const matchType =
+        selectedType === 'ALL' ||
+        (selectedType === 'PENDING' ? tx.category === PENDING_CATEGORY : tx.type === selectedType);
       const matchAccount = selectedAccount === 'ALL' || tx.account === selectedAccount;
 
       return matchSearch && matchType && matchAccount;
@@ -152,6 +157,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     } else {
       setEditingNoteTx(tx);
       setEditNoteText(tx.note || '');
+      setEditNoteCategory(tx.category === PENDING_CATEGORY ? '' : tx.category);
     }
   };
 
@@ -167,6 +173,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         body: JSON.stringify({
           id: editingNoteTx.id,
           note: editNoteText,
+          ...(editingNoteTx.category === PENDING_CATEGORY && editNoteCategory ? { category: editNoteCategory } : {}),
         }),
       });
 
@@ -279,6 +286,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <option value="EXPENSE">🔴 รายจ่าย</option>
               <option value="INCOME">🟢 รายรับ</option>
               <option value="TRANSFER">🔄 โอนย้าย</option>
+              <option value="PENDING">⏳ {PENDING_CATEGORY}</option>
             </select>
 
             <select
@@ -838,6 +846,22 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
             </div>
 
             <form onSubmit={handleSaveNote} className="space-y-4">
+              {editingNoteTx.category === PENDING_CATEGORY && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">หมวดหมู่</label>
+                  <select
+                    value={editNoteCategory}
+                    onChange={(e) => setEditNoteCategory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="">{PENDING_CATEGORY}</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   คำอธิบาย / รายการสิ่งของที่ซื้อ (เช่น ซื้อของแม็คโคร: หมู 2 กก, ไข่ไก่, นมสด, ของใช้)
