@@ -18,7 +18,8 @@ const DEFAULT_CATEGORIES = [
 
 export async function getSheetsClient() {
   const auth = getGoogleAuth();
-  return google.sheets({ version: 'v4', auth });
+  // A hung request must fail and back off, not hold the mirror lock forever
+  return google.sheets({ version: 'v4', auth, timeout: 60_000 });
 }
 
 export function getSpreadsheetId(): string {
