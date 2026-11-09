@@ -163,6 +163,36 @@ describe('statementRowNote', () => {
   });
 });
 
+describe('planStatementImport with LINE rows already in the sheet', () => {
+  const line = (account: string, date: string, amount: number, type: LedgerRow['type'], source = 'LINE'): LedgerRow =>
+    ({ account, date, amount, type, source });
+
+  it('matches a pending LINE expense instead of doubling it', () => {
+    const plan = planStatementImport([line(KPLUS, '2026-10-08', 1000, 'EXPENSE')], [kplusStatement()]);
+    assert.strictEqual(transfersOf(plan.toAppend, '2026-10-08', 1000).length, 0);
+    assert.strictEqual(plan.matched, 1);
+  });
+
+  it('stores a paired LINE transfer once against both statements', () => {
+    const existing = [line(KPLUS, '2026-10-08', 1000, 'TRANSFER')];
+    const plan = planStatementImport(existing, [makeStatement(), kplusStatement()]);
+    assert.strictEqual(transfersOf(plan.toAppend, '2026-10-08', 1000).length, 0);
+  });
+
+  it('a pending LINE deposit on the receiver absorbs the statement receipt', () => {
+    const existing = [line(MAKE, '2026-10-13', 750, 'INCOME')];
+    const plan = planStatementImport(existing, [makeStatement()]);
+    assert.strictEqual(transfersOf(plan.toAppend, '2026-10-13', 750).length, 0);
+  });
+
+  it('two equal LINE rows on one day each match one statement row', () => {
+    const existing = [line(KPLUS, '2026-10-13', 750, 'EXPENSE'), line(KPLUS, '2026-10-13', 750, 'EXPENSE')];
+    const plan = planStatementImport(existing, [kplusStatement()]);
+    assert.strictEqual(plan.toAppend.filter(r => r.date === '2026-10-13' && r.amount === 750).length, 0);
+    assert.strictEqual(plan.matched, 2);
+  });
+});
+
 describe('reconcileStatementRows (Drive path)', () => {
   const row = (date: string, time: string, type: LedgerRow['type'], amount: number, account: string, note: string, slipCell = '-', id = '', fileId = '', source = 'MANUAL'): SheetRow =>
     [date, time, typeLabel(type), amount, 'อื่นๆ', account, note, slipCell, id, fileId, source];
@@ -208,6 +238,13 @@ describe('reconcileStatementRows (Drive path)', () => {
       const kplusToMake = first.rows.filter(r => r[5] === KPLUS && r[2] === typeLabel('TRANSFER'));
       assert.strictEqual(kplusToMake.length, 5);
     }
+  });
+
+  it('keeps a LINE row a LINE row when a statement rewrites it', () => {
+    const rows: SheetRow[] = [['2026-10-08', '20:31:00', typeLabel('EXPENSE'), 1000, 'รอระบุ', KPLUS, 'LINE', '-', 'line_1', '', 'LINE']];
+    const res = reconcileStatementRows(rows, [kplusStatement()]);
+    const kept = res.rows.find(r => r[8] === 'line_1')!;
+    assert.strictEqual(kept[10], 'LINE');
   });
 
   it('a K PLUS statement keeps working as before: K PLUS rows rewritten, others kept', () => {

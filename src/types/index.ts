@@ -13,7 +13,8 @@ export interface Transaction {
   note: string;
   slipUrl?: string;
   driveFileId?: string;
-  source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT';
+  /** LINE: KBank Live card still waiting for its slip; LINE+SLIP: card reconciled with its slip */
+  source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT' | 'LINE' | 'LINE+SLIP';
   createdAt: string;
 }
 
