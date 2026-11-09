@@ -48,3 +48,41 @@ export function startBackgroundSyncScheduler() {
   // Initial sync after 15 seconds on startup
   setTimeout(() => runScheduledSync('startup'), 15000);
 }
+
+const globalForMirror = globalThis as unknown as { __nubtangSheetMirrorTimer?: NodeJS.Timeout };
+let mirrorTickRunning = false;
+
+/** Failures of the Sheet are recorded by the worker; this catches Postgres and programming errors */
+async function runMirrorTick() {
+  if (mirrorTickRunning) return;
+  mirrorTickRunning = true;
+  try {
+    const [{ mirrorOnce }, { createSheetGateway }] = await Promise.all([
+      import('@/lib/sheet-mirror/worker'),
+      import('@/lib/google/sheets'),
+    ]);
+    await mirrorOnce(createSheetGateway());
+  } catch (err: unknown) {
+    console.error('[Scheduler] Sheet mirror tick failed:', err instanceof Error ? err.message : err);
+  } finally {
+    mirrorTickRunning = false;
+  }
+}
+
+/**
+ * Starts the background worker that keeps the Google Sheet a copy of Postgres. It runs regardless of
+ * the auto-sync setting: writes keep landing in the outbox even when slip syncing is off.
+ */
+export function startSheetMirrorScheduler() {
+  if (process.env.ENABLE_SHEET_MIRROR === 'false') {
+    console.log('[Scheduler] Sheet mirror is disabled via ENABLE_SHEET_MIRROR=false');
+    return;
+  }
+
+  const intervalSeconds = Math.max(1, parseInt(process.env.SHEET_MIRROR_INTERVAL_SECONDS || '5', 10) || 5);
+  if (globalForMirror.__nubtangSheetMirrorTimer) {
+    clearInterval(globalForMirror.__nubtangSheetMirrorTimer);
+  }
+  globalForMirror.__nubtangSheetMirrorTimer = setInterval(runMirrorTick, intervalSeconds * 1000);
+  console.log(`[Scheduler] Sheet mirror running every ${intervalSeconds}s`);
+}

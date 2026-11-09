@@ -1,4 +1,6 @@
-import { appendTransactionRows, deleteRowsById, getAllTransactions, updateRowsById } from '@/lib/db/transactions';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { appendTransactionRows, deleteRowsById, getAllTransactions, updateRowsById } from '../db/transactions.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import {
   findLineCard,
   listRecentLineCards,
@@ -9,9 +11,9 @@ import {
   resolveLineAlerts,
   saveLineCard,
   withLedgerLock,
-} from '@/lib/db/line-ledger';
-import type { LedgerStore } from '@/lib/line/ingest';
-import type { Transaction } from '@/types';
+} from '../db/line-ledger.ts';
+import type { LedgerStore } from './ingest.ts';
+import type { Transaction } from '../../types/index.ts';
 
 /** The LINE ledger on Postgres */
 export const ledgerStore: LedgerStore = {

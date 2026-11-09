@@ -421,3 +421,20 @@ export async function saveTaxProfile(
     await enqueueSheetChanges([{ entity: 'tax_profile', entityId: String(year), op: previous ? 'update' : 'insert' }]);
   });
 }
+
+/** Rows the mirror needs, in Sheet order. No date filter: hidden rows are still part of the Sheet. */
+export async function readRowsForMirror(ids?: string[]): Promise<Transaction[]> {
+  const res = await query<TransactionRow>(
+    `SELECT ${COLUMNS} FROM transactions ${ids ? 'WHERE id = ANY($1)' : ''} ORDER BY sheet_position`,
+    ids ? [ids] : [],
+  );
+  return res.rows.map(toTransaction);
+}
+
+export async function readTaxRowsForMirror(years?: number[]): Promise<Array<{ year: number; row: unknown[] }>> {
+  const res = await query<{ year: number; sheet_row: unknown[] }>(
+    `SELECT year, sheet_row FROM tax_profiles ${years ? 'WHERE year = ANY($1)' : ''} ORDER BY sheet_position`,
+    years ? [years] : [],
+  );
+  return res.rows.map(r => ({ year: r.year, row: r.sheet_row }));
+}

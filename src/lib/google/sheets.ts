@@ -14,37 +14,8 @@ import {
 import { defaultDeductions } from '@/lib/tax/tax-engine';
 import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
 import { isLineSourced } from '@/lib/statement/import-plan';
-
-const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
-const SUMMARY_SHEET = '📊 สรุปยอด';
-const CATEGORIES_SHEET = '🏷️ หมวดหมู่';
-export const SHEET_TAX = '📑 ข้อมูลภาษี';
-
-export const TAX_HEADERS = [
-  'ปีภาษี',
-  'เงินได้พึงประเมินรวม',
-  '40(1) เงินเดือน',
-  '40(2) ฟรีแลนซ์/รับจ้าง',
-  '40(3) ค่าลิขสิทธิ์',
-  '40(4) ดอกเบี้ย/ปันผล',
-  '40(5) ค่าเช่า',
-  '40(6) วิชาชีพอิสระ',
-  '40(7) รับเหมา',
-  '40(8) อื่นๆ/ธุรกิจ',
-  'ค่าใช้จ่ายที่หักได้',
-  'ลดหย่อนตนเองและครอบครัว',
-  'ลดหย่อนประกันและการออม',
-  'ลดหย่อนกองทุนเกษียณและThaiESG',
-  'ลดหย่อนอสังหาฯและมาตรการรัฐ',
-  'เงินบริจาคที่หักได้',
-  'เงินได้สุทธิ',
-  'ภาษีที่คำนวณได้',
-  'ภาษีหัก ณ ที่จ่าย',
-  'ภาษีที่ต้องจ่ายเพิ่ม (คืน)',
-  'รายละเอียดค่าลดหย่อน (JSON)',
-  'อัปเดตล่าสุด',
-  'รายการที่ผู้ใช้ยกเว้น (JSON)',
-];
+import { CATEGORIES_SHEET, SHEET_TAX, SUMMARY_SHEET, TAX_HEADERS, TRANSACTIONS_SHEET, transactionToCells } from '@/lib/sheet-mirror/cells';
+import type { Cell, SheetGateway, ValueRender } from '@/lib/sheet-mirror/worker';
 
 const DEFAULT_CATEGORIES = [
   'อาหารและเครื่องดื่ม',
@@ -213,34 +184,6 @@ export async function getExistingDriveFileIds(): Promise<Set<string>> {
     console.error('[Sheets] Error getting existing drive file ids:', err.message);
     return new Set<string>();
   }
-}
-
-/** Columns A-K of a transaction row */
-function transactionToCells(tx: Omit<Transaction, 'createdAt' | 'source'> & { source: string }): Array<string | number> {
-  // Create human friendly emoji prefix for type
-  let typeLabel: string = tx.type;
-  if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
-  else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
-  else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
-
-  // Format slip link formula for easy viewing in Google Sheets app
-  const slipFormula = tx.slipUrl
-    ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
-    : '-';
-
-  return [
-    normalizeDateString(tx.date),
-    normalizeTimeString(tx.time),
-    typeLabel,
-    tx.amount,
-    tx.category,
-    tx.account,
-    tx.note,
-    slipFormula,
-    tx.id,
-    tx.driveFileId || '',
-    tx.source,
-  ];
 }
 
 /**
@@ -923,3 +866,55 @@ export async function saveTaxProfile(
 }
 
 
+
+/** The Google Sheets calls the background mirror makes */
+export function createSheetGateway(): SheetGateway {
+  return {
+    ensureStructure: async () => {
+      await ensureSheetStructure();
+      await ensureTaxSheetExists();
+    },
+    getValues: async (range: string, render: ValueRender = 'FORMATTED_VALUE') => {
+      const sheets = await getSheetsClient();
+      const res = await sheets.spreadsheets.values.get({ spreadsheetId: getSpreadsheetId(), range, valueRenderOption: render });
+      return (res.data.values || []) as Cell[][];
+    },
+    updateValues: async data => {
+      const sheets = await getSheetsClient();
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: getSpreadsheetId(),
+        requestBody: { valueInputOption: 'USER_ENTERED', data },
+      });
+    },
+    appendValues: async (range, values) => {
+      const sheets = await getSheetsClient();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: getSpreadsheetId(),
+        range,
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values },
+      });
+    },
+    clearValues: async range => {
+      const sheets = await getSheetsClient();
+      await sheets.spreadsheets.values.clear({ spreadsheetId: getSpreadsheetId(), range });
+    },
+    deleteRows: async (tab, rowNumbers) => {
+      const sheets = await getSheetsClient();
+      const spreadsheetId = getSpreadsheetId();
+      const metadata = await sheets.spreadsheets.get({ spreadsheetId });
+      const sheetId = metadata.data.sheets?.find(s => s.properties?.title === tab)?.properties?.sheetId;
+      if (sheetId === undefined || sheetId === null) throw new Error(`Tab ${tab} not found`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          // Bottom row first so one deletion cannot shift the next
+          requests: [...rowNumbers].sort((a, b) => b - a).map(row => ({
+            deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: row - 1, endIndex: row } },
+          })),
+        },
+      });
+    },
+  };
+}
