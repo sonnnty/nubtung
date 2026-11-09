@@ -3,8 +3,6 @@ import assert from 'node:assert/strict';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { ingestCard, reconcileSlips } from './ingest.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import { parseCard } from './kbank-card.ts';
-// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { rowFingerprint, PENDING_CATEGORY } from './reconcile.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { resolveTransferDestination } from '../balance/transfer-destination.ts';

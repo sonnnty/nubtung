@@ -328,7 +328,7 @@ export async function appendTransactionRows(txs: Transaction[]) {
 }
 
 /** One row of A2:K as a Transaction; `index` is its position in that range */
-function rowToTransaction(r: any[], index: number): Transaction {
+function rowToTransaction(r: string[], index: number): Transaction {
   const rawType = r[2] || '';
   let parsedType: TransactionType = 'EXPENSE';
   if (rawType.includes('รายรับ') || rawType === 'INCOME') parsedType = 'INCOME';
