@@ -1,8 +1,11 @@
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { appendTransactionRows, ensureSheetStructure } from '@/lib/google/sheets';
-import { getProcessedSlipIds, getProcessedSlipMd5s, markSlipProcessed } from '@/lib/db';
-import { SyncStats, Transaction } from '@/types';
+import { ensureSheetStructure } from '@/lib/google/sheets';
+import { getSettledSlipIds, getProcessedSlipMd5s, markSlipProcessed } from '@/lib/db';
+import { saveSlipFact } from '@/lib/db/line-ledger';
+import { reconcileSlips } from '@/lib/line/ingest';
+import { ledgerStore } from '@/lib/line/store';
+import { SyncStats } from '@/types';
 
 // Chunk helper for high-speed parallel processing
 function chunkArray<T>(array: T[], chunkSize: number): T[][] {
@@ -14,7 +17,10 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 }
 
 /**
- * Scans the configured Drive slip folders, OCRs new slips with Gemini and appends them to the sheet.
+ * Scans the configured Drive slip folders, OCRs new slips with Gemini and reconciles them with the
+ * ledger: a slip updates its LINE row in place, or is appended when it has none. A slip's OCR result is
+ * stored before the sheet is touched and reconciliation runs every time, so a failed write is
+ * finished by the next run. Its errors are not caught here: they must reach the sync result.
  */
 export async function syncSlipsFromDrive() {
   // 1. Ensure sheet tabs & headers exist
@@ -50,7 +56,7 @@ export async function syncSlipsFromDrive() {
     console.log(`[Sync] Scanning folder: ${folder.account}...`);
     const files = await listSlipsInFolder(folder.id);
 
-    const processedIds = await getProcessedSlipIds(files.map(f => f.id));
+    const processedIds = await getSettledSlipIds(files.map(f => f.id));
     const unprocessedFiles = files.filter(f => !processedIds.has(f.id));
     stats.skipped += (files.length - unprocessedFiles.length);
 
@@ -84,8 +90,6 @@ export async function syncSlipsFromDrive() {
     const fileChunks = chunkArray(dedupedFiles, CONCURRENCY);
 
     for (const chunk of fileChunks) {
-      const chunkTransactions: Transaction[] = [];
-
       await Promise.all(
         chunk.map(async (file) => {
           try {
@@ -125,25 +129,18 @@ export async function syncSlipsFromDrive() {
               stats.transfers++;
             }
 
-            const txId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-            const slipLink = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
-
-            const newTx: Transaction = {
-              id: txId,
+            await saveSlipFact({
+              driveFileId: file.id,
+              account: folder.account,
               date: slipData.date,
               time: slipData.time,
-              type: slipData.type,
               amount: slipData.amount,
+              type: slipData.type,
               category: slipData.category,
-              account: folder.account,
               note: slipData.note,
-              slipUrl: slipLink,
-              driveFileId: file.id,
-              source: 'AUTO_SYNC',
-              createdAt: new Date().toISOString(),
-            };
-
-            chunkTransactions.push(newTx);
+              slipUrl: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+              receiverAccount: slipData.receiverAccount,
+            });
 
             await markSlipProcessed({
               driveFileId: file.id,
@@ -164,6 +161,12 @@ export async function syncSlipsFromDrive() {
           } catch (err: any) {
             stats.failed++;
             console.error(`[Sync] Error on ${file.name}:`, err.message);
+            stats.details.push({
+              fileName: file.name,
+              account: folder.account,
+              status: 'FAILED',
+              error: err.message,
+            });
             await markSlipProcessed({
               driveFileId: file.id,
               account: folder.account,
@@ -172,17 +175,17 @@ export async function syncSlipsFromDrive() {
           }
         })
       );
-
-      // Save batch to Google Sheets periodically
-      if (chunkTransactions.length > 0) {
-        await appendTransactionRows(chunkTransactions);
-      }
     }
   }
 
+  // One pass over everything not yet applied, so a late slip or an earlier failure is finished here
+  stats.ledger = await reconcileSlips(ledgerStore);
+
+  const { merged, corrected, confirmed, undone, adopted, protected: protectedRows, appended } = stats.ledger;
+  const matched = merged + corrected + confirmed + adopted + undone;
   return {
     success: true,
-    message: `ซิงค์สลิปสำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (โอนระหว่างบัญชี ${stats.transfers}), ข้าม ${stats.skipped}, ล้มเหลว ${stats.failed}`,
+    message: `ซิงค์สลิปสำเร็จ: ประมวลผลใหม่ ${stats.processed} สลิป (โอนระหว่างบัญชี ${stats.transfers}), จับคู่การ์ด LINE ${matched}, เพิ่มใหม่ ${appended}, แถวที่แก้เองไม่ถูกเขียนทับ ${protectedRows}, ข้าม ${stats.skipped}, ล้มเหลว ${stats.failed}`,
     stats,
   };
 }

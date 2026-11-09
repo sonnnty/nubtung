@@ -36,6 +36,8 @@ export interface SyncStats {
   skipped: number;
   failed: number;
   transfers: number;
+  /** What the slips did to the ledger this run */
+  ledger?: Record<'merged' | 'corrected' | 'confirmed' | 'undone' | 'adopted' | 'protected' | 'appended' | 'already', number>;
   details: Array<{
     fileName: string;
     account: string;

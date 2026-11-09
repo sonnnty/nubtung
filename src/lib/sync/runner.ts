@@ -39,9 +39,13 @@ export async function executeFullSync(setStage: (stage: string) => void = () => 
   // 2. Sync Statements from Email (with Slip-First Deduplication)
   setStage('statements');
   let stmResult: any = { skipped: true };
+  let statementError: string | undefined;
   try {
     stmResult = await syncStatementsFromEmail();
+    // syncStatementsFromEmail reports its own failures as success: false; "not configured" is not one
+    if (stmResult.success === false && !stmResult.skipped) statementError = stmResult.message;
   } catch (err: any) {
+    statementError = err.message;
     console.error('[Auto-Sync] Error syncing statements from email:', err.message);
   }
 
@@ -70,8 +74,10 @@ export async function executeFullSync(setStage: (stage: string) => void = () => 
       skipped: slips?.skipped ?? 0,
       failed: slips?.failed ?? 0,
       transfers: slips?.transfers ?? 0,
+      ledger: slips?.ledger,
     },
     slipsError,
+    statementError,
     statement: stmResult,
     mortgage,
   };
