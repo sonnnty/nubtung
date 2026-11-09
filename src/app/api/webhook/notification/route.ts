@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { appendTransactionRow, ensureSheetStructure } from '@/lib/google/sheets';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
-import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
+import { parseNotificationText } from '@/lib/line/notification-text';
 import { hasValidSecret } from '@/lib/auth/secret';
 
 export async function POST(req: Request) {
@@ -27,25 +27,8 @@ export async function POST(req: Request) {
 
     const text = messageText.trim();
 
-    // 1. Extract Amount
-    // Matches formats: "500.00 บาท", "500.00บาท", "จำนวน 500.00", "500 บาท", "500.00"
-    const amountMatch = text.match(/(?:จำนวน|ยอดเงิน|เงินเข้า|เงินออก|ชำระ|โอน)?\s*([\d,]+\.?\d*)\s*(?:บาท|THB)?/i);
-    let amount = 0;
-    if (amountMatch && amountMatch[1]) {
-      const cleanNum = amountMatch[1].replace(/,/g, '');
-      const parsed = parseFloat(cleanNum);
-      if (!isNaN(parsed) && parsed > 0) {
-        amount = parsed;
-      }
-    }
-
-    // Fallback search for floating number if first match failed
-    if (amount === 0) {
-      const numMatch = text.match(/[\d,]+\.\d{2}/);
-      if (numMatch) {
-        amount = parseFloat(numMatch[0].replace(/,/g, '')) || 0;
-      }
-    }
+    // 1. Extract Amount, the accounts mentioned and the time the bank printed
+    const { amount, hasKplus, hasMake, date: dateStr, time: timeStr } = parseNotificationText(text);
 
     if (amount === 0) {
       return NextResponse.json({
@@ -56,15 +39,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Identify Account (K PLUS vs Make by KBank)
-    const kplusFull = process.env.KPLUS_ACCOUNT_NO || '';
-    const makeFull = process.env.MAKE_ACCOUNT_NO || '';
-    const kplusLast4 = kplusFull.slice(-4);
-    const makeLast4 = makeFull.slice(-4);
-
     let account = 'K PLUS';
-    const hasKplus = !!kplusFull && (text.includes(kplusLast4) || text.includes(kplusFull));
-    const hasMake = (!!makeFull && (text.includes(makeLast4) || text.includes(makeFull))) || /make/i.test(text);
-
     if (hasMake && !hasKplus) {
       account = 'Make by KBank';
     } else if (hasKplus) {
@@ -125,10 +100,6 @@ export async function POST(req: Request) {
       else if (/ไฟฟ้า|ประปา|ais|true|dtac|เน็ต/i.test(lower)) category = 'สาธารณูปโภค (น้ำ/ไฟ/เน็ต)';
       else if (/อาหาร|กาแฟ|cafe|amazon|กะเพรา/i.test(lower)) category = 'อาหารและเครื่องดื่ม';
     }
-
-    // 6. Format Date & Time (UTC+7 Asia/Bangkok)
-    const dateStr = getBangkokDateString();
-    const timeStr = getBangkokTimeString();
 
     const txId = `noti_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 

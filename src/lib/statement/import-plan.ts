@@ -56,8 +56,8 @@ export function isInternalReceipt(stm: StatementTransaction): boolean {
   return stm.direction === 'IN' && stm.type === 'TRANSFER' && !!stm.counterparty;
 }
 
-export function internalTransferNote(from: string, to: string, details?: string): string {
-  const base = `โอนจาก ${from} ไปยัง ${to} (statement)`;
+export function internalTransferNote(from: string, to: string, details?: string, origin = 'statement'): string {
+  const base = `โอนจาก ${from} ไปยัง ${to} (${origin})`;
   if (details) {
     const withDetails = `${base} — ${details}`;
     if (resolveTransferDestination(withDetails, from) === to) return withDetails;
@@ -83,10 +83,16 @@ export function statementRowNote(stm: StatementTransaction): string {
   return note;
 }
 
-function isSlipRow(row: LedgerRow): boolean {
+/** Rows backed by bank evidence: a slip, or a KBank Live card (source LINE / LINE+SLIP) */
+export function isSlipRow(row: LedgerRow): boolean {
   return !!(row.driveFileId && row.driveFileId.trim()) ||
     !!(row.slipUrl && row.slipUrl.trim() && row.slipUrl.trim() !== '-') ||
-    (row.source || '').startsWith('AUTO_SYNC');
+    (row.source || '').startsWith('AUTO_SYNC') ||
+    isLineSourced(row.source);
+}
+
+export function isLineSourced(source: string | undefined): boolean {
+  return (source || '').startsWith('LINE');
 }
 
 interface PoolEntry<R extends LedgerRow> {
@@ -340,7 +346,8 @@ export function reconcileStatementRows(existingRows: SheetRow[], statements: Sta
       slipCell,
       slip && slip[8] ? slip[8] : `stm_${stm.date.replace(/-/g, '')}_${line.index + 1}`,
       slip && slip[9] ? slip[9] : '',
-      slip ? 'AUTO_SYNC+STATEMENT' : 'STATEMENT',
+      // A LINE row stays a LINE row: a later slip must still find it, and its card links keep working
+      slip ? (isLineSourced(String(slip[10] || '')) ? String(slip[10]) : 'AUTO_SYNC+STATEMENT') : 'STATEMENT',
     ]);
     perAccount[line.account].total++;
     if (slip) perAccount[line.account].matched++;

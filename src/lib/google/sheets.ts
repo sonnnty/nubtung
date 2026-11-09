@@ -13,6 +13,8 @@ import {
 } from '@/lib/tax/category-mapping';
 import { defaultDeductions } from '@/lib/tax/tax-engine';
 import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
+import { isLineSourced } from '@/lib/statement/import-plan';
+import { rowFingerprint, type DeleteOp, type UpdateOp } from '@/lib/line/reconcile';
 
 const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
 const SUMMARY_SHEET = '📊 สรุปยอด';
@@ -214,6 +216,34 @@ export async function getExistingDriveFileIds(): Promise<Set<string>> {
   }
 }
 
+/** Columns A-K of a transaction row */
+function transactionToCells(tx: Omit<Transaction, 'createdAt' | 'source'> & { source: string }): Array<string | number> {
+  // Create human friendly emoji prefix for type
+  let typeLabel: string = tx.type;
+  if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
+  else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
+  else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
+
+  // Format slip link formula for easy viewing in Google Sheets app
+  const slipFormula = tx.slipUrl
+    ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
+    : '-';
+
+  return [
+    normalizeDateString(tx.date),
+    normalizeTimeString(tx.time),
+    typeLabel,
+    tx.amount,
+    tx.category,
+    tx.account,
+    tx.note,
+    slipFormula,
+    tx.id,
+    tx.driveFileId || '',
+    tx.source,
+  ];
+}
+
 /**
  * Appends a new transaction row to Google Sheets
  */
@@ -230,33 +260,7 @@ export async function appendTransactionRow(tx: Transaction) {
     }
   }
 
-  // Create human friendly emoji prefix for type
-  let typeLabel: string = tx.type;
-  if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
-  else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
-  else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
-
-  // Format slip link formula for easy viewing in Google Sheets app
-  const slipFormula = tx.slipUrl
-    ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
-    : '-';
-
-  const cleanDate = normalizeDateString(tx.date);
-  const cleanTime = normalizeTimeString(tx.time);
-
-  const row = [
-    cleanDate,
-    cleanTime,
-    typeLabel,
-    tx.amount,
-    tx.category,
-    tx.account,
-    tx.note,
-    slipFormula,
-    tx.id,
-    tx.driveFileId || '',
-    tx.source,
-  ];
+  const row = transactionToCells(tx);
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
@@ -299,7 +303,8 @@ export async function appendTransactionRows(txs: Transaction[]) {
     const cDate = normalizeDateString(tx.date);
     const cTime = normalizeTimeString(tx.time);
     const sig = `${cDate}|${cTime}|${tx.amount}|${tx.account}`;
-    if (batchSignatures.has(sig)) {
+    // Two equal LINE rows in one minute are two real cards (they differ by balance)
+    if (batchSignatures.has(sig) && !isLineSourced(tx.source)) {
       console.log(`[Sheets] Duplicate transaction in batch detected, skipping: ${sig}`);
       continue;
     }
@@ -309,33 +314,7 @@ export async function appendTransactionRows(txs: Transaction[]) {
 
   if (dedupedTxs.length === 0) return;
 
-  const rows = dedupedTxs.map(tx => {
-    let typeLabel: string = tx.type;
-    if (tx.type === 'EXPENSE') typeLabel = '🔴 รายจ่าย';
-    else if (tx.type === 'INCOME') typeLabel = '🟢 รายรับ';
-    else if (tx.type === 'TRANSFER') typeLabel = '🔄 โอนย้ายเงิน';
-
-    const slipFormula = tx.slipUrl
-      ? `=HYPERLINK("${tx.slipUrl}", "🖼️ ดูสลิป")`
-      : '-';
-
-    const cleanDate = normalizeDateString(tx.date);
-    const cleanTime = normalizeTimeString(tx.time);
-
-    return [
-      cleanDate,
-      cleanTime,
-      typeLabel,
-      tx.amount,
-      tx.category,
-      tx.account,
-      tx.note,
-      slipFormula,
-      tx.id,
-      tx.driveFileId || '',
-      tx.source,
-    ];
-  });
+  const rows = dedupedTxs.map(transactionToCells);
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
@@ -346,6 +325,43 @@ export async function appendTransactionRows(txs: Transaction[]) {
       values: rows,
     },
   });
+}
+
+/** One row of A2:K as a Transaction; `index` is its position in that range */
+function rowToTransaction(r: string[], index: number): Transaction {
+  const rawType = r[2] || '';
+  let parsedType: TransactionType = 'EXPENSE';
+  if (rawType.includes('รายรับ') || rawType === 'INCOME') parsedType = 'INCOME';
+  else if (rawType.includes('โอนย้าย') || rawType === 'TRANSFER') parsedType = 'TRANSFER';
+
+  // Parse amount cleanly
+  const rawAmount = String(r[3] || '0').replace(/[^\d.-]/g, '');
+  const amount = parseFloat(rawAmount) || 0;
+
+  let slipUrl: string | undefined = undefined;
+  if (r[7] && String(r[7]).startsWith('http')) {
+    slipUrl = String(r[7]);
+  } else if (r[9] && String(r[9]).trim().length > 10) {
+    slipUrl = `https://drive.google.com/file/d/${String(r[9]).trim()}/view`;
+  }
+
+  const cleanDate = normalizeDateString(r[0] || '');
+  const cleanTime = normalizeTimeString(r[1] || '');
+
+  return {
+    id: r[8] || `tx_${index + 1}`,
+    date: cleanDate,
+    time: cleanTime,
+    type: parsedType,
+    amount,
+    category: r[4] || 'อื่นๆ',
+    account: r[5] || 'ไม่ระบุ',
+    note: r[6] || '',
+    slipUrl,
+    driveFileId: r[9] || undefined,
+    source: (r[10] as any) || 'MANUAL',
+    createdAt: `${cleanDate}T${cleanTime}`,
+  };
 }
 
 /**
@@ -366,40 +382,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.length === 0 || !r[0]) continue;
-
-    const rawType = r[2] || '';
-    let parsedType: TransactionType = 'EXPENSE';
-    if (rawType.includes('รายรับ') || rawType === 'INCOME') parsedType = 'INCOME';
-    else if (rawType.includes('โอนย้าย') || rawType === 'TRANSFER') parsedType = 'TRANSFER';
-
-    // Parse amount cleanly
-    const rawAmount = String(r[3] || '0').replace(/[^\d.-]/g, '');
-    const amount = parseFloat(rawAmount) || 0;
-
-    let slipUrl: string | undefined = undefined;
-    if (r[7] && String(r[7]).startsWith('http')) {
-      slipUrl = String(r[7]);
-    } else if (r[9] && String(r[9]).trim().length > 10) {
-      slipUrl = `https://drive.google.com/file/d/${String(r[9]).trim()}/view`;
-    }
-
-    const cleanDate = normalizeDateString(r[0] || '');
-    const cleanTime = normalizeTimeString(r[1] || '');
-
-    transactions.push({
-      id: r[8] || `tx_${i + 1}`,
-      date: cleanDate,
-      time: cleanTime,
-      type: parsedType,
-      amount,
-      category: r[4] || 'อื่นๆ',
-      account: r[5] || 'ไม่ระบุ',
-      note: r[6] || '',
-      slipUrl,
-      driveFileId: r[9] || undefined,
-      source: (r[10] as any) || 'MANUAL',
-      createdAt: `${cleanDate}T${cleanTime}`,
-    });
+    transactions.push(rowToTransaction(r, i));
   }
 
   // Sort strictly descending by date & time (newest / latest transactions first)
@@ -415,6 +398,73 @@ export async function getAllTransactions(): Promise<Transaction[]> {
   });
 
   return transactions;
+}
+
+/**
+ * Reads the rows again and pairs each id with its current row. Rows shift (appends, deletes, the
+ * dedupe rewrite), so a row is only ever addressed through a fresh lookup by id. Throws if a
+ * row is gone or differs from what the plan was made from, so nothing is written on stale data.
+ */
+async function locateRowsForWrite(ops: Array<{ id: string; expected: string }>) {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${TRANSACTIONS_SHEET}'!A2:K`,
+  });
+  const rows = res.data.values || [];
+  const indexById = new Map(rows.map((r, i) => [String(r[8] || '').trim(), i]));
+
+  const located = ops.map(op => {
+    const index = indexById.get(op.id);
+    if (index === undefined) throw new Error(`Sheet row ${op.id} is gone; not written`);
+    if (rowFingerprint(rowToTransaction(rows[index], index)) !== op.expected) {
+      throw new Error(`Sheet row ${op.id} changed since it was read; not written`);
+    }
+    return { ...op, index };
+  });
+  return { sheets, spreadsheetId, located };
+}
+
+/** Rewrites rows in place, each found by id right before the write */
+export async function updateRowsById(ops: UpdateOp[]): Promise<void> {
+  if (ops.length === 0) return;
+  const { sheets, spreadsheetId, located } = await locateRowsForWrite(
+    ops.map(op => ({ id: op.row.id, expected: op.expected })),
+  );
+  const cellsById = new Map(ops.map(op => [op.row.id, transactionToCells(op.row)]));
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data: located.map(({ id, index }) => ({
+        range: `'${TRANSACTIONS_SHEET}'!A${index + 2}:K${index + 2}`,
+        values: [cellsById.get(id)!],
+      })),
+    },
+  });
+}
+
+/** Deletes rows found by id, bottom row first so one deletion cannot shift the next */
+export async function deleteRowsById(ops: DeleteOp[]): Promise<void> {
+  if (ops.length === 0) return;
+  const { sheets, spreadsheetId, located } = await locateRowsForWrite(ops);
+
+  const metadata = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetId = metadata.data.sheets?.find(s => s.properties?.title === TRANSACTIONS_SHEET)?.properties?.sheetId;
+  if (sheetId === undefined || sheetId === null) throw new Error('Transactions sheet not found');
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [...located].sort((a, b) => b.index - a.index).map(({ index }) => ({
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: index + 1, endIndex: index + 2 },
+        },
+      })),
+    },
+  });
 }
 
 /**
@@ -627,9 +677,10 @@ export async function deduplicateSheetTransactions(): Promise<{ beforeCount: num
       }
     }
 
-    // Check exact match (date + time + amount + account)
+    // Check exact match (date + time + amount + account). Not for LINE rows: their time has minute
+    // precision, so two equal purchases in one minute look identical but are two real cards.
     const exactKey = `${date}|${time}|${amount}|${account}`;
-    if (!isDuplicate) {
+    if (!isDuplicate && !isLineSourced(source)) {
       if (seenExact.has(exactKey)) {
         isDuplicate = true;
       } else {

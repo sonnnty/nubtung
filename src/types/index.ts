@@ -13,7 +13,8 @@ export interface Transaction {
   note: string;
   slipUrl?: string;
   driveFileId?: string;
-  source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT';
+  /** LINE: KBank Live card still waiting for its slip; LINE+SLIP: card reconciled with its slip */
+  source: 'AUTO_SYNC' | 'MANUAL' | 'STATEMENT' | 'LINE' | 'LINE+SLIP';
   createdAt: string;
 }
 
@@ -35,6 +36,8 @@ export interface SyncStats {
   skipped: number;
   failed: number;
   transfers: number;
+  /** What the slips did to the ledger this run */
+  ledger?: Record<'merged' | 'corrected' | 'confirmed' | 'undone' | 'adopted' | 'protected' | 'appended' | 'already', number>;
   details: Array<{
     fileName: string;
     account: string;

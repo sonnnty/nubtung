@@ -95,6 +95,19 @@ describe('computeAccountBalances with statement anchors', () => {
   });
 });
 
+describe('computeAccountBalances with LINE rows and a statement anchor', () => {
+  it('counts LINE rows after the cutoff on top of the closing balance, not those before', () => {
+    const kplusAnchor = { account: KPLUS, periodEnd: '2026-11-08', closingBalance: 10000 };
+    const { balances } = computeAccountBalances([
+      tx('2026-11-08', 'EXPENSE', 50, KPLUS),
+      tx('2026-11-09', 'EXPENSE', 150, KPLUS),
+      tx('2026-11-09', 'TRANSFER', 100, KPLUS, 'โอนจาก K PLUS ไปยัง Make by KBank (LINE รอตรวจสอบสลิป)'),
+    ], [kplusAnchor]);
+    assert.strictEqual(balances[KPLUS], 10000 - 150 - 100);
+    assert.strictEqual(balances[MAKE], Math.round((BASELINE_BALANCES[MAKE] + 100) * 100) / 100);
+  });
+});
+
 describe('Make statement import + anchor, end to end', () => {
   it('Make shows the bank balance (757.83 - the 32 slip of 2026-10-30 = 725.83)', () => {
     const text = readFileSync(new URL('../statement/fixtures/make-statement-2026-10.txt', import.meta.url), 'utf8');

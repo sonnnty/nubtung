@@ -51,14 +51,20 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       if (job.result.slipsError) {
         throw new Error(job.result.slipsError);
       }
+      if (job.result.statementError) {
+        throw new Error(job.result.statementError);
+      }
 
       const stmData = job.result.statement ?? {};
       const slipProcessed = job.result.slips?.processed ?? 0;
       const stmAdded = stmData.addedFromStatement ?? 0;
       const stmMatched = stmData.matchedWithSlip ?? 0;
+      const ledger = job.result.slips?.ledger ?? {};
+      const lineMatched = (ledger.merged ?? 0) + (ledger.corrected ?? 0) + (ledger.confirmed ?? 0) + (ledger.undone ?? 0) + (ledger.adopted ?? 0);
 
       const parts: string[] = [];
       if (slipProcessed > 0) parts.push(`สลิปใหม่ ${slipProcessed} รายการ`);
+      if (lineMatched > 0) parts.push(`สลิปตรงกับการ์ด LINE ${lineMatched} รายการ`);
       if (stmMatched > 0) parts.push(`Statement ตรงกับสลิป ${stmMatched} รายการ`);
       if (stmAdded > 0) parts.push(`Statement ใหม่ ${stmAdded} รายการ`);
 

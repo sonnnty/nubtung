@@ -8,10 +8,16 @@ import ManualTransactionModal from '@/components/Transactions/ManualTransactionM
 import { Transaction } from '@/types';
 import { readJson } from '@/lib/utils/http';
 
+interface LineAlertView {
+  id: string;
+  message: string;
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lineAlerts, setLineAlerts] = useState<LineAlertView[]>([]);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -23,6 +29,7 @@ export default function TransactionsPage() {
         throw new Error(data.error || 'Failed to fetch transactions');
       }
       setTransactions(data.transactions || []);
+      setLineAlerts(data.lineAlerts || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -66,6 +73,17 @@ export default function TransactionsPage() {
             >
               ลองใหม่
             </button>
+          </div>
+        )}
+
+        {lineAlerts.length > 0 && (
+          <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+            <p className="font-bold mb-1">การ์ด LINE ต้องตรวจสอบ {lineAlerts.length} รายการ</p>
+            <ul className="space-y-0.5">
+              {lineAlerts.slice(0, 5).map((alert) => (
+                <li key={alert.id}>• {alert.message}</li>
+              ))}
+            </ul>
           </div>
         )}
 

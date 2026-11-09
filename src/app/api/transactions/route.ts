@@ -3,6 +3,7 @@ import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateT
 import { Transaction, DashboardSummary } from '@/types';
 import { computeAccountBalances } from '@/lib/balance/account-balances';
 import { getStatementBalances, type StatementBalance } from '@/lib/db';
+import { getOpenLineAlerts, withLedgerLock, type OpenLineAlert } from '@/lib/db/line-ledger';
 
 export async function GET() {
   try {
@@ -53,9 +54,18 @@ export async function GET() {
       totalCashInAccounts,
     };
 
+    // Cards that need attention; failing to read them must not take the page down
+    let lineAlerts: OpenLineAlert[] = [];
+    try {
+      lineAlerts = await getOpenLineAlerts();
+    } catch (err: unknown) {
+      console.error('Error reading LINE card alerts:', err instanceof Error ? err.message : err);
+    }
+
     return NextResponse.json({
       transactions,
       summary,
+      lineAlerts,
     });
   } catch (error: any) {
     console.error('Error fetching transactions:', error);
@@ -97,7 +107,7 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    await appendTransactionRow(tx);
+    await withLedgerLock(() => appendTransactionRow(tx));
 
     return NextResponse.json({ success: true, transaction: tx });
   } catch (error: any) {
@@ -118,7 +128,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสรายการ (ID) ที่ต้องการลบ' }, { status: 400 });
     }
 
-    const result = await deleteTransactionRow(id, true);
+    const result = await withLedgerLock(() => deleteTransactionRow(id, true));
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'ไม่สามารถลบรายการนี้ได้' }, { status: 400 });
     }
@@ -144,7 +154,7 @@ export async function PATCH(req: Request) {
 
     // If full transaction fields are provided, update the manual transaction
     if (amount !== undefined || type !== undefined || category !== undefined || account !== undefined || date !== undefined) {
-      const result = await updateManualTransaction({
+      const result = await withLedgerLock(() => updateManualTransaction({
         id,
         type,
         amount: amount !== undefined ? parseFloat(amount) : undefined,
@@ -153,7 +163,7 @@ export async function PATCH(req: Request) {
         note,
         date: date !== undefined ? normalizeDateString(date) : undefined,
         time: time !== undefined ? normalizeTimeString(time) : undefined,
-      });
+      }));
 
       if (!result.success) {
         return NextResponse.json({ error: result.error || 'ไม่สามารถแก้ไขรายการนี้ได้' }, { status: 400 });
@@ -167,7 +177,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'กรุณาระบุข้อความที่ต้องการบันทึก' }, { status: 400 });
     }
 
-    const updated = await updateTransactionNote(id, note);
+    const updated = await withLedgerLock(() => updateTransactionNote(id, note));
     if (!updated) {
       return NextResponse.json({ error: 'ไม่พบรายการที่ต้องการแก้ไขใน Google Sheets' }, { status: 404 });
     }

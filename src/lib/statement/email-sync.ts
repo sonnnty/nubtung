@@ -7,6 +7,7 @@ import { planStatementImport } from '@/lib/statement/import-plan';
 import { getAllTransactions, appendTransactionRows } from '@/lib/google/sheets';
 import { isStatementProcessed, markStatementProcessed, getStatementBalances } from '@/lib/db';
 import { recordStatementAnchor } from '@/lib/statement/anchor';
+import { withLedgerLock } from '@/lib/db/line-ledger';
 import { Transaction } from '@/types';
 
 export interface StatementEmailSyncResult {
@@ -66,6 +67,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
     console.warn('[Statement Email Sync] GHB_EMAIL_APP_PASSWORD not set, skipping email sync');
     return {
       success: false,
+      skipped: true,
       message: 'ไม่ได้ตั้งค่ารหัสผ่านอีเมล (GHB_EMAIL_APP_PASSWORD)',
       processedFiles: 0,
       skippedFiles: 0,
@@ -118,9 +120,6 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
         };
       }
 
-      // 1. Fetch all existing transactions to prepare for Slip-First Deduplication
-      const existingTransactions = await getAllTransactions();
-      
       // Closing balances already stored, to backfill anchors from statements imported before they existed
       const anchorPeriodEnds = new Map<string, string>();
       try {
@@ -213,25 +212,29 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
         }
       }
 
-      // Slip-first deduplication against every row in the sheet, per account
-      const plan = planStatementImport(
-        existingTransactions,
-        pending.map(p => ({ account: p.account, transactions: p.parsed.transactions })),
-      );
-      const now = new Date().toISOString();
-      const allNewTransactions: Transaction[] = plan.toAppend.map(row => ({
-        id: `stm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        ...row,
-        source: 'STATEMENT',
-        createdAt: now,
-      }));
-      const matchedWithSlip = plan.matched;
-      const addedFromStatement = allNewTransactions.length;
+      // Slip-first deduplication against every row in the sheet, per account. Read inside the lock,
+      // right before planning, so a card or slip arriving during the mail fetch is matched too.
+      const { allNewTransactions, matchedWithSlip } = await withLedgerLock(async () => {
+        const existingTransactions = await getAllTransactions();
+        const plan = planStatementImport(
+          existingTransactions,
+          pending.map(p => ({ account: p.account, transactions: p.parsed.transactions })),
+        );
+        const now = new Date().toISOString();
+        const newTransactions: Transaction[] = plan.toAppend.map(row => ({
+          id: `stm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          ...row,
+          source: 'STATEMENT',
+          createdAt: now,
+        }));
 
-      // Append all genuinely new statement transactions to Google Sheets
-      if (allNewTransactions.length > 0) {
-        await appendTransactionRows(allNewTransactions);
-      }
+        // Append all genuinely new statement transactions to Google Sheets
+        if (newTransactions.length > 0) {
+          await appendTransactionRows(newTransactions);
+        }
+        return { allNewTransactions: newTransactions, matchedWithSlip: plan.matched };
+      });
+      const addedFromStatement = allNewTransactions.length;
 
       // Only after the rows are in the sheet: mark the files and store their closing balances
       for (const p of pending) {
