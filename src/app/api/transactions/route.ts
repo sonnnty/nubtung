@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction, ensureSheetStructure, normalizeDateString, normalizeTimeString } from '@/lib/google/sheets';
 import { Transaction, DashboardSummary } from '@/types';
-import { computeAccountBalances } from '@/lib/balance/account-balances';
+import { computeAccountBalancesWithCards, type BalanceCard } from '@/lib/balance/account-balances';
 import { getStatementBalances, type StatementBalance } from '@/lib/db';
 import { getOpenLineAlerts, withLedgerLock, type OpenLineAlert } from '@/lib/db/line-ledger';
+import { getLatestLineCards } from '@/lib/line/latest-cards';
 
 export async function GET() {
   try {
@@ -37,9 +38,19 @@ export async function GET() {
     } catch (err: unknown) {
       console.error('Error reading statement balances, using the 2026-09-04 baseline only:', err instanceof Error ? err.message : err);
     }
-    const { balances: dynamicAccountBalances, asOf: accountBalanceAsOf } = computeAccountBalances(transactions, anchors);
-
-    const totalCashInAccounts = Object.values(dynamicAccountBalances).reduce((sum, b) => sum + b, 0);
+    let lineCards: BalanceCard[] = [];
+    try {
+      lineCards = await getLatestLineCards();
+    } catch (err: unknown) {
+      console.error('Error reading LINE card balances, using ledger balances only:', err instanceof Error ? err.message : err);
+    }
+    const {
+      balances: dynamicAccountBalances,
+      asOf: accountBalanceAsOf,
+      gaps: accountBalanceGaps,
+      cardTimes: accountCardTimes,
+      totalCash: totalCashInAccounts,
+    } = computeAccountBalancesWithCards(transactions, anchors, lineCards);
 
     const summary: DashboardSummary = {
       totalIncome,
@@ -51,6 +62,8 @@ export async function GET() {
       recentTransactions: transactions.slice(0, 10),
       accountBalances: dynamicAccountBalances,
       accountBalanceAsOf,
+      accountBalanceGaps,
+      accountCardTimes,
       totalCashInAccounts,
     };
 

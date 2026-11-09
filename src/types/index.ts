@@ -58,6 +58,10 @@ export interface DashboardSummary {
   accountBalances?: Record<string, number>;
   /** Accounts whose balance starts from a statement closing balance -> statement period end (YYYY-MM-DD) */
   accountBalanceAsOf?: Record<string, string>;
+  /** Ledger minus KBank Live card balance per account (null when the account has no card yet) */
+  accountBalanceGaps?: Record<string, number | null>;
+  /** When the newest KBank Live card was read per account ("YYYY-MM-DD HH:mm", or null when none) */
+  accountCardTimes?: Record<string, string | null>;
   totalCashInAccounts?: number;
 }
 
