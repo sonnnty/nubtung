@@ -27,8 +27,8 @@ export class FakeSheet implements SheetGateway {
   failures: Error[] = [];
   /** A write that lands on Google but whose response is lost: applied, then this is thrown */
   lostResponses: Error[] = [];
-  /** Runs on the next read; simulates someone changing the Sheet between two reads */
-  onRead: (() => void) | null = null;
+  /** What a cell shows when it differs from its value, e.g. a number format; key "<row>:<column index>" */
+  displayOverrides = new Map<string, string>();
 
   seed(tab: string, rows: Cell[][]) {
     this.tabs.set(tab, rows.map(r => [...r]));
@@ -47,11 +47,10 @@ export class FakeSheet implements SheetGateway {
     this.calls.push('ensureStructure');
   }
 
-  private displayed(cell: Cell | undefined, render: ValueRender): Cell {
+  private displayed(cell: Cell | undefined, render: ValueRender, key: string): Cell {
     if (cell === undefined || cell === null) return '';
-    if (typeof cell === 'number') {
-      return render === 'UNFORMATTED_VALUE' ? cell : cell.toLocaleString('en-US', { minimumFractionDigits: 2 });
-    }
+    if (render === 'FORMATTED_VALUE' && this.displayOverrides.has(key)) return this.displayOverrides.get(key)!;
+    if (typeof cell === 'number') return render === 'UNFORMATTED_VALUE' ? cell : String(cell);
     if (render !== 'FORMULA' && String(cell).startsWith('=HYPERLINK')) {
       return String(cell).match(/,\s*"([^"]*)"\)$/)?.[1] ?? '';
     }
@@ -60,15 +59,11 @@ export class FakeSheet implements SheetGateway {
 
   async getValues(range: string, render: ValueRender = 'FORMATTED_VALUE'): Promise<Cell[][]> {
     this.calls.push(`get ${range} ${render}`);
-    if (this.onRead) {
-      const fn = this.onRead;
-      this.onRead = null;
-      fn();
-    }
     const { tab, firstCol, lastCol, firstRow, lastRow } = parseRange(range);
     const out: Cell[][] = [];
     for (let i = firstRow - 1; i < Math.min(this.rows(tab).length, lastRow); i++) {
-      const cells = (this.rows(tab)[i] ?? []).slice(firstCol, lastCol + 1).map(c => this.displayed(c, render));
+      const cells = (this.rows(tab)[i] ?? []).slice(firstCol, lastCol + 1)
+        .map((c, col) => this.displayed(c, render, `${i + 1}:${firstCol + col}`));
       while (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
       out.push(cells);
     }

@@ -231,7 +231,7 @@ describe('mirror worker', { skip: !url }, () => {
       amount: '-150.00 บาท',
       balance: '13,698.33 บาท',
     };
-    const res = await ingestCard(card, ledgerStore);
+    const res = await ingestCard(card, ledgerStore) as { txId: string };
     await repo.updateTransactionNote(res.txId, 'แก้เอง');
     assert.ok((await repo.getAllTransactions())[0].editedAt);
 
@@ -281,7 +281,7 @@ describe('mirror worker', { skip: !url }, () => {
     assert.equal(tab.length, 1);
     assert.equal(tab[0][1], 2);
     const profile = await repo.getTaxProfile(2026);
-    assert.deepEqual(profile.excludedTransactionIds, ['tx1']);
-    assert.equal(profile.deductions.socialSecurity, 1000);
+    assert.deepEqual(profile!.excludedTransactionIds, ['tx1']);
+    assert.equal(profile!.deductions.socialSecurity, 1000);
   });
 });

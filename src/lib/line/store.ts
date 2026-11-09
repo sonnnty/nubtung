@@ -1,6 +1,5 @@
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { appendTransactionRows, deleteRowsById, getAllTransactions, updateRowsById } from '../db/transactions.ts';
-// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import {
   findLineCard,
   listRecentLineCards,
@@ -11,6 +10,7 @@ import {
   resolveLineAlerts,
   saveLineCard,
   withLedgerLock,
+  // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 } from '../db/line-ledger.ts';
 import type { LedgerStore } from './ingest.ts';
 import type { Transaction } from '../../types/index.ts';
