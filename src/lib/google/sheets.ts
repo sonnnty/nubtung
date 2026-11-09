@@ -14,7 +14,6 @@ import {
 import { defaultDeductions } from '@/lib/tax/tax-engine';
 import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
 import { isLineSourced } from '@/lib/statement/import-plan';
-import { rowFingerprint, type DeleteOp, type UpdateOp } from '@/lib/line/reconcile';
 
 const TRANSACTIONS_SHEET = '📝 รายการทั้งหมด';
 const SUMMARY_SHEET = '📊 สรุปยอด';
@@ -398,73 +397,6 @@ export async function getAllTransactions(): Promise<Transaction[]> {
   });
 
   return transactions;
-}
-
-/**
- * Reads the rows again and pairs each id with its current row. Rows shift (appends, deletes, the
- * dedupe rewrite), so a row is only ever addressed through a fresh lookup by id. Throws if a
- * row is gone or differs from what the plan was made from, so nothing is written on stale data.
- */
-async function locateRowsForWrite(ops: Array<{ id: string; expected: string }>) {
-  const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${TRANSACTIONS_SHEET}'!A2:K`,
-  });
-  const rows = res.data.values || [];
-  const indexById = new Map(rows.map((r, i) => [String(r[8] || '').trim(), i]));
-
-  const located = ops.map(op => {
-    const index = indexById.get(op.id);
-    if (index === undefined) throw new Error(`Sheet row ${op.id} is gone; not written`);
-    if (rowFingerprint(rowToTransaction(rows[index], index)) !== op.expected) {
-      throw new Error(`Sheet row ${op.id} changed since it was read; not written`);
-    }
-    return { ...op, index };
-  });
-  return { sheets, spreadsheetId, located };
-}
-
-/** Rewrites rows in place, each found by id right before the write */
-export async function updateRowsById(ops: UpdateOp[]): Promise<void> {
-  if (ops.length === 0) return;
-  const { sheets, spreadsheetId, located } = await locateRowsForWrite(
-    ops.map(op => ({ id: op.row.id, expected: op.expected })),
-  );
-  const cellsById = new Map(ops.map(op => [op.row.id, transactionToCells(op.row)]));
-
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      valueInputOption: 'USER_ENTERED',
-      data: located.map(({ id, index }) => ({
-        range: `'${TRANSACTIONS_SHEET}'!A${index + 2}:K${index + 2}`,
-        values: [cellsById.get(id)!],
-      })),
-    },
-  });
-}
-
-/** Deletes rows found by id, bottom row first so one deletion cannot shift the next */
-export async function deleteRowsById(ops: DeleteOp[]): Promise<void> {
-  if (ops.length === 0) return;
-  const { sheets, spreadsheetId, located } = await locateRowsForWrite(ops);
-
-  const metadata = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetId = metadata.data.sheets?.find(s => s.properties?.title === TRANSACTIONS_SHEET)?.properties?.sheetId;
-  if (sheetId === undefined || sheetId === null) throw new Error('Transactions sheet not found');
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [...located].sort((a, b) => b.index - a.index).map(({ index }) => ({
-        deleteDimension: {
-          range: { sheetId, dimension: 'ROWS', startIndex: index + 1, endIndex: index + 2 },
-        },
-      })),
-    },
-  });
 }
 
 /**

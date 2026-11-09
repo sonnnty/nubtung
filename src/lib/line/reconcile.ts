@@ -11,10 +11,10 @@
 // - the row is updated in place, never duplicated, and becomes LINE+SLIP;
 // - a slip showing a self-transfer turns an EXPENSE into a TRANSFER; a slip showing someone else undoes
 //   a provisional pair and restores one row per card;
-// - rows the owner edited (see rowFingerprint) are never written; a slip that matches one is consumed.
+// - rows the owner edited in the web app (editedAt) are never written; a slip that matches one is consumed.
 //
-// Every write names the row by id and carries the fingerprint it expects, so an edit made since the
-// sheet was read cannot be overwritten or hit a different row.
+// Every write names the row by id. Plans and writes run in one ledger transaction, so nothing can
+// change a row between the two.
 import { createHash } from 'node:crypto';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { internalTransferNote, isLineSourced } from '../statement/import-plan.ts';
@@ -42,6 +42,8 @@ export interface LineRow extends LedgerRow {
   category: string;
   note: string;
   source: string;
+  /** Set when the owner edited the row in the web app */
+  editedAt?: string;
 }
 
 /** A card already in the ledger: which row carries it now */
@@ -68,22 +70,14 @@ export interface SlipFact {
   receiverAccount?: string;
 }
 
-/** What the automation last wrote to a row. A row matching neither was edited by hand. */
-export interface RowFingerprint {
-  fingerprint: string | null;
-  /** Written before a sheet write, so a crash right after the write does not look like a hand edit */
-  pendingFingerprint: string | null;
-}
-
 export interface LedgerView {
   rows: LineRow[];
   cards: StoredCard[];
-  fingerprints: Map<string, RowFingerprint>;
 }
 
 export type AppendOp = { kind: 'append'; row: LineRow };
-export type UpdateOp = { kind: 'update'; row: LineRow; expected: string };
-export type DeleteOp = { kind: 'delete'; id: string; expected: string };
+export type UpdateOp = { kind: 'update'; row: LineRow };
+export type DeleteOp = { kind: 'delete'; id: string };
 export type LedgerOp = AppendOp | UpdateOp | DeleteOp;
 
 export type AlertKind = 'MISSING_CARD' | 'NEEDS_REVIEW' | 'POSSIBLE_MANUAL_DUPLICATE';
@@ -98,23 +92,6 @@ export interface LineAlert {
 
 function sha1(text: string): string {
   return createHash('sha1').update(text).digest('hex');
-}
-
-/**
- * Hash of the columns a person would edit. Hand edits are detected by comparing a row against what the
- * automation last wrote: this catches edits made in the app and directly in Google Sheets alike,
- * and needs no extra sheet column.
- */
-export function rowFingerprint(row: Pick<LineRow, 'date' | 'time' | 'type' | 'amount' | 'category' | 'account' | 'note'>): string {
-  return sha1([
-    row.date,
-    row.time,
-    row.type,
-    row.amount.toFixed(2),
-    row.category.trim(),
-    row.account.trim(),
-    row.note.replace(/\s+/g, ' ').trim(),
-  ].join('|'));
 }
 
 function minuteOf(when: { date: string; time: string }): number {
@@ -141,16 +118,14 @@ function linksByRow(cards: StoredCard[]): Map<string, StoredCard[]> {
   return links;
 }
 
-function isAutomationOwned(row: LineRow, view: LedgerView): boolean {
-  const stored = view.fingerprints.get(row.id);
-  if (!stored) return false;
-  const current = rowFingerprint(row);
-  return current === stored.fingerprint || current === stored.pendingFingerprint;
+/** Written by the automation and not changed by the owner since */
+function isAutomationOwned(row: LineRow): boolean {
+  return isLineSourced(row.source) && !row.editedAt;
 }
 
 /** A LINE row the automation may still change: not yet matched to a slip, not touched by the owner */
-function isOpen(row: LineRow, view: LedgerView): boolean {
-  return row.source === LINE_SOURCE && isAutomationOwned(row, view);
+function isOpen(row: LineRow): boolean {
+  return row.source === LINE_SOURCE && isAutomationOwned(row);
 }
 
 function nearestBy<T>(items: T[], distance: (item: T) => number): T | null {
@@ -192,8 +167,8 @@ function provisionalTransferRow(row: LineRow, out: { account: string; date: stri
   };
 }
 
-function updateOp(row: LineRow, before: LineRow): UpdateOp {
-  return { kind: 'update', row, expected: rowFingerprint(before) };
+function updateOp(row: LineRow): UpdateOp {
+  return { kind: 'update', row };
 }
 
 export interface CardPlan {
@@ -204,8 +179,8 @@ export interface CardPlan {
 }
 
 /** Can this finished row (slip, statement or a row the owner decided) carry the card without changing? */
-function canAttachCard(row: LineRow, card: KBankCard, links: Map<string, StoredCard[]>, view: LedgerView): boolean {
-  if (row.source === 'MANUAL' || isOpen(row, view)) return false;
+function canAttachCard(row: LineRow, card: KBankCard, links: Map<string, StoredCard[]>): boolean {
+  if (row.source === 'MANUAL' || isOpen(row)) return false;
   if (!sameAmount(row.amount, card.amount) || minutesApart(row, card) > SLIP_MATCH_MINUTES) return false;
   if ((links.get(row.id) || []).some(c => c.direction === card.direction)) return false;
   if (card.direction === 'OUT') {
@@ -217,8 +192,8 @@ function canAttachCard(row: LineRow, card: KBankCard, links: Map<string, StoredC
 }
 
 /** The other card of an open single-card row that this card forms an internal transfer with */
-function transferPartner(row: LineRow, card: KBankCard, links: Map<string, StoredCard[]>, view: LedgerView): StoredCard | null {
-  if (!isOpen(row, view)) return null;
+function transferPartner(row: LineRow, card: KBankCard, links: Map<string, StoredCard[]>): StoredCard | null {
+  if (!isOpen(row)) return null;
   const rowCards = links.get(row.id) || [];
   if (rowCards.length !== 1) return null;
   const other = rowCards[0];
@@ -239,19 +214,19 @@ export function planCardIngest(card: KBankCard, view: LedgerView): CardPlan {
 
   // Slip first, card after: the row already says what the payment was
   const carrier = nearestBy(
-    view.rows.filter(r => canAttachCard(r, card, links, view)),
+    view.rows.filter(r => canAttachCard(r, card, links)),
     r => minutesApart(r, card),
   );
   if (carrier) return { outcome: 'attached', txId: carrier.id, ops: [], alerts: [] };
 
   const pairs = view.rows
-    .map(row => ({ row, other: transferPartner(row, card, links, view) }))
+    .map(row => ({ row, other: transferPartner(row, card, links) }))
     .filter((p): p is { row: LineRow; other: StoredCard } => p.other !== null);
   const pair = nearestBy(pairs, p => minutesApart(p.other, card));
   if (pair) {
     const [out, receiver] = card.direction === 'OUT' ? [card, pair.other] : [pair.other, card];
     const row = provisionalTransferRow(pair.row, out, receiver.account);
-    return { outcome: 'paired', txId: pair.row.id, ops: [updateOp(row, pair.row)], alerts: [] };
+    return { outcome: 'paired', txId: pair.row.id, ops: [updateOp(row)], alerts: [] };
   }
 
   const alerts: LineAlert[] = [];
@@ -433,7 +408,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
   const usedRows = new Set(assigned.map(c => c.row.id));
 
   for (const { slip, card, row, kind } of assigned) {
-    if (!isAutomationOwned(row, view)) {
+    if (!isAutomationOwned(row)) {
       plan.results.push({ driveFileId: slip.driveFileId, txId: row.id, outcome: 'protected' });
       continue;
     }
@@ -444,7 +419,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
 
     if (kind === 'adopt') {
       const adopted = rowWithSlip({ ...row, account: slip.account }, slip, card.account);
-      plan.ops.push(updateOp(adopted, row));
+      plan.ops.push(updateOp(adopted));
       record(row.id, 'adopted');
       continue;
     }
@@ -453,7 +428,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
       if (slip.type === 'TRANSFER' && destination) {
         absorbLoneDeposit(slip, destination, row, view, rowsById, links, usedRows, plan);
       }
-      plan.ops.push(updateOp(rowWithSlip(row, slip, destination), row));
+      plan.ops.push(updateOp(rowWithSlip(row, slip, destination)));
       record(row.id, slip.type === row.type ? 'merged' : 'corrected');
       continue;
     }
@@ -462,7 +437,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
     const [outCard, inCard] = sortPair(links.get(row.id) || []);
     const confirmed = slip.type === 'TRANSFER' && card.direction === 'OUT' && (destination === null || destination === inCard.account);
     if (confirmed) {
-      plan.ops.push(updateOp(rowWithSlip(row, slip, inCard.account), row));
+      plan.ops.push(updateOp(rowWithSlip(row, slip, inCard.account)));
       record(row.id, 'confirmed');
       continue;
     }
@@ -476,14 +451,14 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
     // The write that carries the slip's id goes last: until it lands the slip counts as unapplied,
     // so a crash halfway through is simply planned again
     if (rowBelongsToOther) {
-      plan.ops.push(updateOp({ ...otherRow, id: row.id }, row));
+      plan.ops.push(updateOp({ ...otherRow, id: row.id }));
       plan.ops.push({ kind: 'append', row: slipRow });
       plan.cardLinks.push({ key: card.key, txId: slipRow.id });
       record(slipRow.id, 'undone');
     } else {
       const slipRowInPlace = { ...slipRow, id: row.id };
       if (!rowsById.has(otherRow.id)) plan.ops.push({ kind: 'append', row: otherRow });
-      plan.ops.push(updateOp(slipRowInPlace, row));
+      plan.ops.push(updateOp(slipRowInPlace));
       plan.cardLinks.push({ key: other.key, txId: otherRow.id });
       record(row.id, 'undone');
     }
@@ -491,6 +466,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
 
   for (const slip of open) {
     if (handled.has(slip.driveFileId)) continue;
+    const destination = slip.type === 'TRANSFER' ? slipDestination(slip) : null;
     const row: LineRow = {
       id: `tx_${sha1(slip.driveFileId).slice(0, 20)}`,
       date: slip.date,
@@ -499,7 +475,7 @@ export function planSlipReconcile(slips: SlipFact[], view: LedgerView): SlipPlan
       amount: slip.amount,
       category: slip.category,
       account: slip.account,
-      note: slip.note,
+      note: destination ? slipTransferNote(slip, destination) : slip.note,
       slipUrl: slip.slipUrl,
       driveFileId: slip.driveFileId,
       source: 'AUTO_SYNC',
@@ -535,15 +511,10 @@ function absorbLoneDeposit(
     if (card.account !== destination || card.direction !== 'IN') continue;
     if (!sameAmount(card.amount, slip.amount) || minutesApart(card, slip) > SLIP_MATCH_MINUTES) continue;
     const row = rowsById.get(card.txId);
-    if (!row || usedRows.has(row.id) || !isOpen(row, view) || (links.get(row.id) || []).length !== 1) continue;
+    if (!row || usedRows.has(row.id) || !isOpen(row) || (links.get(row.id) || []).length !== 1) continue;
     usedRows.add(row.id);
-    plan.ops.push({ kind: 'delete', id: row.id, expected: rowFingerprint(row) });
+    plan.ops.push({ kind: 'delete', id: row.id });
     plan.cardLinks.push({ key: card.key, txId: merged.id });
     return;
   }
-}
-
-/** Rows the sheet should treat as automation output (only these get fingerprints) */
-export function isFingerprinted(row: LineRow): boolean {
-  return isLineSourced(row.source);
 }

@@ -1,10 +1,10 @@
-// Postgres side of the LINE ledger: cards seen, slip facts, row fingerprints and alerts.
+// Postgres side of the LINE ledger: cards seen, slip facts and alerts.
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { getPool, inTransaction, query, withTransaction } from './index.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { initTransactionsSchema } from './transactions.ts';
 import type { KBankCard } from '../line/kbank-card.ts';
-import type { LineAlert, RowFingerprint, SlipFact, SlipOutcome, StoredCard } from '../line/reconcile.ts';
+import type { LineAlert, SlipFact, SlipOutcome, StoredCard } from '../line/reconcile.ts';
 
 /** Arbitrary but fixed key of the Postgres advisory lock serialising everything that writes the ledger */
 const LEDGER_LOCK_KEY = 736401;
@@ -33,13 +33,6 @@ export function initLineLedgerSchema(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS idx_line_cards_date ON line_cards(txn_date);
       CREATE INDEX IF NOT EXISTS idx_line_cards_tx ON line_cards(tx_id);
-
-      CREATE TABLE IF NOT EXISTS line_row_fingerprints (
-        tx_id TEXT PRIMARY KEY,
-        fingerprint TEXT,
-        pending_fingerprint TEXT,
-        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
 
       CREATE TABLE IF NOT EXISTS slip_facts (
         drive_file_id VARCHAR(255) PRIMARY KEY,
@@ -131,35 +124,6 @@ export async function relinkLineCards(links: Array<{ key: string; txId: string }
   await initLineLedgerSchema();
   for (const { key, txId } of links) {
     await query('UPDATE line_cards SET tx_id = $1 WHERE card_key = $2', [txId, key]);
-  }
-}
-
-export async function readRowFingerprints(): Promise<Map<string, RowFingerprint>> {
-  await initLineLedgerSchema();
-  const res = await query<{ tx_id: string; fingerprint: string | null; pending_fingerprint: string | null }>(
-    'SELECT tx_id, fingerprint, pending_fingerprint FROM line_row_fingerprints',
-  );
-  return new Map(res.rows.map(r => [r.tx_id, { fingerprint: r.fingerprint, pendingFingerprint: r.pending_fingerprint }]));
-}
-
-export async function prepareRowFingerprints(rows: Array<{ id: string; fingerprint: string }>): Promise<void> {
-  await initLineLedgerSchema();
-  for (const { id, fingerprint } of rows) {
-    await query(
-      `INSERT INTO line_row_fingerprints (tx_id, pending_fingerprint) VALUES ($1, $2)
-       ON CONFLICT (tx_id) DO UPDATE SET pending_fingerprint = EXCLUDED.pending_fingerprint, updated_at = CURRENT_TIMESTAMP`,
-      [id, fingerprint],
-    );
-  }
-}
-
-export async function commitRowFingerprints(rows: Array<{ id: string; fingerprint: string }>): Promise<void> {
-  await initLineLedgerSchema();
-  for (const { id, fingerprint } of rows) {
-    await query(
-      `UPDATE line_row_fingerprints SET fingerprint = $1, pending_fingerprint = NULL, updated_at = CURRENT_TIMESTAMP WHERE tx_id = $2`,
-      [fingerprint, id],
-    );
   }
 }
 
