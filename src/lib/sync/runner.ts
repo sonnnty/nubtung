@@ -1,5 +1,3 @@
-import { ensureSheetStructure, getExistingDriveFileIds } from '@/lib/google/sheets';
-import { markSlipsProcessedBatch } from '@/lib/db';
 import { syncStatementsFromEmail } from '@/lib/statement/email-sync';
 import { syncSlipsFromDrive } from '@/lib/sync/slips';
 import { syncMortgageReceiptsFromEmail } from '@/lib/ghb/sync';
@@ -11,19 +9,6 @@ import { startJob } from '@/lib/sync/jobs';
 export async function executeFullSync(setStage: (stage: string) => void = () => {}) {
   const startTime = Date.now();
   console.log(`[Auto-Sync] 🔄 Starting high-speed background sync at ${new Date().toISOString()}...`);
-
-  await ensureSheetStructure();
-
-  // Auto-hydrate DB cache from Google Sheets so fresh pods/restarts never re-process old slips
-  try {
-    const sheetDriveIds = await getExistingDriveFileIds();
-    if (sheetDriveIds.size > 0) {
-      await markSlipsProcessedBatch(Array.from(sheetDriveIds));
-      console.log(`[Auto-Sync] 🛡️ Hydrated PostgreSQL with ${sheetDriveIds.size} existing slips from Google Sheets.`);
-    }
-  } catch (err: any) {
-    console.error('[Auto-Sync] Warning: Failed to hydrate slip cache from sheets:', err.message);
-  }
 
   // 1. Sync slips from Drive (OCR + MD5/signature dedup)
   setStage('slips');
@@ -87,7 +72,7 @@ export const FULL_SYNC_JOB = 'sync-all';
 
 /**
  * Starts executeFullSync as a background job. Every entry point (sync button, scheduler, cron)
- * goes through this, so only one sync touches Drive/Sheets at a time; if one is already running
+ * goes through this, so only one sync touches Drive at a time; if one is already running
  * its job is returned instead of starting another.
  */
 export function startFullSyncJob() {

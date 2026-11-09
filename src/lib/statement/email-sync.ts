@@ -4,7 +4,7 @@ import { extractStatementText } from '@/lib/statement/parser';
 import { parseStatement, checkStatementTotals, periodEndFromStatementFileName, type ParsedStatement } from '@/lib/statement/statement-text';
 import { detectStatementAccount, last4FromStatementFileName, last4FromStatementHeader, type StatementAccount } from '@/lib/statement/accounts';
 import { planStatementImport } from '@/lib/statement/import-plan';
-import { getAllTransactions, appendTransactionRows } from '@/lib/google/sheets';
+import { getAllTransactions, appendTransactionRows } from '@/lib/db/transactions';
 import { isStatementProcessed, markStatementProcessed, getStatementBalances } from '@/lib/db';
 import { recordStatementAnchor } from '@/lib/statement/anchor';
 import { withLedgerLock } from '@/lib/db/line-ledger';
@@ -212,7 +212,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
         }
       }
 
-      // Slip-first deduplication against every row in the sheet, per account. Read inside the lock,
+      // Slip-first deduplication against every row in the ledger, per account. Read inside the lock,
       // right before planning, so a card or slip arriving during the mail fetch is matched too.
       const { allNewTransactions, matchedWithSlip } = await withLedgerLock(async () => {
         const existingTransactions = await getAllTransactions();
@@ -228,7 +228,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
           createdAt: now,
         }));
 
-        // Append all genuinely new statement transactions to Google Sheets
+        // Append all genuinely new statement transactions
         if (newTransactions.length > 0) {
           await appendTransactionRows(newTransactions);
         }
@@ -236,7 +236,7 @@ export async function syncStatementsFromEmail(forceRefresh = false): Promise<Sta
       });
       const addedFromStatement = allNewTransactions.length;
 
-      // Only after the rows are in the sheet: mark the files and store their closing balances
+      // Only after the rows are saved: mark the files and store their closing balances
       for (const p of pending) {
         await markStatementProcessed({
           fileId: p.fileId,

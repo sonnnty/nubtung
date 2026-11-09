@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTransactions, getTaxProfile, saveTaxProfile } from '@/lib/google/sheets';
+import { getTransactions, getTaxProfile, saveTaxProfile } from '@/lib/db/transactions';
 import { calculateTax, defaultDeductions, defaultIncome } from '@/lib/tax/tax-engine';
 import { categorizeTransactionsForTax } from '@/lib/tax/category-mapping';
 import { TaxDeductions, IncomeBySection } from '@/lib/tax/tax-types';
@@ -13,17 +13,12 @@ export async function GET(request: NextRequest) {
     const parsedYear = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
     const year = isNaN(parsedYear) ? new Date().getFullYear() : parsedYear;
 
-    // 1. Fetch saved profile from Sheet if available
-    let savedProfile = null;
-    try {
-      savedProfile = await getTaxProfile(year);
-    } catch (sheetErr) {
-      console.warn('Could not fetch saved tax profile:', sheetErr);
-    }
+    // 1. Fetch saved profile if available
+    const savedProfile = await getTaxProfile(year);
 
     const userExcludedIds: string[] = savedProfile?.excludedTransactionIds || [];
 
-    // 2. Fetch transactions for the year from Google Sheets
+    // 2. Fetch transactions for the year
     const transactions = await getTransactions();
     const yearTransactions = transactions.filter((tx) => {
       if (!tx.date) return false;
@@ -83,12 +78,11 @@ export async function POST(request: NextRequest) {
       ? excludedTransactionIds.map(String)
       : undefined;
 
-    // Save to Google Sheets
     await saveTaxProfile(calculated, deductions, Number(year), parsedExcludedIds);
 
     return NextResponse.json({
       success: true,
-      message: 'บันทึกข้อมูลภาษีลง Google Sheets เรียบร้อยแล้ว',
+      message: 'บันทึกข้อมูลภาษีเรียบร้อยแล้ว',
       calculated,
       excludedTransactionIds: parsedExcludedIds || [],
     });

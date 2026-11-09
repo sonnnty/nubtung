@@ -1,6 +1,5 @@
 import { listSlipsInFolder, downloadFileAsBase64 } from '@/lib/google/drive';
 import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
-import { ensureSheetStructure } from '@/lib/google/sheets';
 import { getSettledSlipIds, getProcessedSlipMd5s, markSlipProcessed } from '@/lib/db';
 import { saveSlipFact } from '@/lib/db/line-ledger';
 import { reconcileSlips } from '@/lib/line/ingest';
@@ -19,13 +18,10 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 /**
  * Scans the configured Drive slip folders, OCRs new slips with Gemini and reconciles them with the
  * ledger: a slip updates its LINE row in place, or is appended when it has none. A slip's OCR result is
- * stored before the sheet is touched and reconciliation runs every time, so a failed write is
+ * stored before the ledger is touched and reconciliation runs every time, so a failed write is
  * finished by the next run. Its errors are not caught here: they must reach the sync result.
  */
 export async function syncSlipsFromDrive() {
-  // 1. Ensure sheet tabs & headers exist
-  await ensureSheetStructure();
-
   const kplusFolderId = process.env.GOOGLE_DRIVE_KPLUS_FOLDER_ID;
   const makeFolderId = process.env.GOOGLE_DRIVE_MAKE_FOLDER_ID;
   const paotangFolderId = process.env.GOOGLE_DRIVE_PAOTANG_FOLDER_ID;

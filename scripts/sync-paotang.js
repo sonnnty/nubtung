@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
 const { Pool } = require('pg');
 const path = require('path');
+const { appendTransactions } = require('./lib/append-transactions');
 
 if (!process.env.DATABASE_URL) {
   console.error('[Paotang Sync] DATABASE_URL environment variable is required.');
@@ -26,8 +27,6 @@ const auth = new google.auth.JWT({
   ],
 });
 const drive = google.drive({ version: 'v3', auth });
-const sheets = google.sheets({ version: 'v4', auth });
-const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -158,15 +157,9 @@ Return ONLY a valid JSON object matching this schema:
   }
 
   if (pendingRows.length > 0) {
-    console.log(`[Paotang Sync] 📝 Appending ${pendingRows.length} rows to Google Sheets...`);
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: "'📝 รายการทั้งหมด'!A:K",
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: pendingRows },
-    });
-    console.log('[Paotang Sync] 🎉 Done appending to Google Sheets!');
+    console.log(`[Paotang Sync] 📝 Saving ${pendingRows.length} rows to Postgres...`);
+    await appendTransactions(pool, pendingRows);
+    console.log('[Paotang Sync] 🎉 Done (the background mirror updates the Sheet)!');
   }
 }
 

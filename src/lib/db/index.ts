@@ -164,24 +164,6 @@ export async function getProcessedSlipMd5s(md5Checksums: string[]): Promise<Set<
   return new Set(res.rows.map((r) => r.md5_checksum));
 }
 
-export async function markSlipsProcessedBatch(driveFileIds: string[]): Promise<void> {
-  const cleanIds = (driveFileIds || []).map((id) => id?.trim()).filter(Boolean);
-  if (cleanIds.length === 0) return;
-
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < cleanIds.length; i += BATCH_SIZE) {
-    const batch = cleanIds.slice(i, i + BATCH_SIZE);
-    const placeholders = batch.map((_, idx) => `($${idx + 1}, 'SHEET_SYNC', 'SUCCESS')`).join(', ');
-
-    await query(
-      `INSERT INTO processed_slips (drive_file_id, account, status)
-       VALUES ${placeholders}
-       ON CONFLICT (drive_file_id) DO NOTHING`,
-      batch
-    );
-  }
-}
-
 export async function markSlipProcessed(data: {
   driveFileId: string;
   account: string;

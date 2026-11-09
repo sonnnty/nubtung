@@ -163,15 +163,6 @@ export async function getAllTransactions(): Promise<Transaction[]> {
 
 export const getTransactions = getAllTransactions;
 
-export async function getExistingDriveFileIds(): Promise<Set<string>> {
-  await assertSheetMigrated();
-  const res = await query<{ drive_file_id: string }>(
-    `SELECT DISTINCT trim(drive_file_id) as drive_file_id FROM transactions
-     WHERE drive_file_id IS NOT NULL AND trim(drive_file_id) <> ''`,
-  );
-  return new Set(res.rows.map(r => r.drive_file_id));
-}
-
 /** Writes new rows, skipping slips already recorded and repeats within the batch */
 export async function appendTransactionRows(txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return;

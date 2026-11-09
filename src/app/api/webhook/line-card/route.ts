@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { hasValidSecret } from '@/lib/auth/secret';
-import { ensureSheetStructure } from '@/lib/google/sheets';
 import { ingestCard } from '@/lib/line/ingest';
 import { ledgerStore } from '@/lib/line/store';
 import type { RawCard } from '@/lib/line/kbank-card';
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    await ensureSheetStructure();
     const result = await ingestCard(body as RawCard, ledgerStore);
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {

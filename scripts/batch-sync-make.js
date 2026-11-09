@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
 const { Pool } = require('pg');
 const path = require('path');
+const { appendTransactions } = require('./lib/append-transactions');
 
 // 1. Initialize PostgreSQL
 if (!process.env.DATABASE_URL) {
@@ -28,14 +29,12 @@ const auth = new google.auth.JWT({
   ],
 });
 const drive = google.drive({ version: 'v3', auth });
-const sheets = google.sheets({ version: 'v4', auth });
-const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
 // 3. Initialize Gemini AI
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const CONCURRENCY = 6; // Stable concurrency for Google rate limits
-const BATCH_FLUSH_SIZE = 20; // Write to Google Sheets every 20 slips
+const BATCH_FLUSH_SIZE = 20; // Write to Postgres every 20 slips
 
 function timeoutPromise(ms, promise, errMsg = 'Operation timed out') {
   return Promise.race([
@@ -231,21 +230,12 @@ async function run() {
       })
     );
 
-    // Periodic flush to Google Sheets
+    // Periodic flush to Postgres
     if (pendingRows.length >= BATCH_FLUSH_SIZE || i + CONCURRENCY >= unprocessed.length) {
       const toFlush = pendingRows.splice(0, pendingRows.length);
       if (toFlush.length > 0) {
-        try {
-          await sheets.spreadsheets.values.append({
-            spreadsheetId,
-            range: "'📝 รายการทั้งหมด'!A:K",
-            valueInputOption: 'USER_ENTERED',
-            insertDataOption: 'INSERT_ROWS',
-            requestBody: { values: toFlush },
-          });
-        } catch (sheetErr) {
-          console.error('[Sheet Flush Error]:', sheetErr.message);
-        }
+        // A failure stops the run: these slips are already marked processed and would be lost
+        await appendTransactions(pool, toFlush);
         const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
         const percent = Math.min(100, Math.round(((i + chunk.length) / totalItems) * 100));
         console.log(`[Progress] ⚡ ${i + chunk.length}/${totalItems} (${percent}%) | Flushed ${toFlush.length} rows | Elapsed: ${elapsedSec}s`);

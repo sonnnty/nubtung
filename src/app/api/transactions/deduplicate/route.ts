@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
-import { deduplicateSheetTransactions, getExistingDriveFileIds } from '@/lib/google/sheets';
-import { markSlipsProcessedBatch } from '@/lib/db';
-import { withLedgerLock } from '@/lib/db/line-ledger';
+import { deduplicateTransactions } from '@/lib/db/transactions';
 
 export async function POST() {
   try {
-    // Clears and rewrites the rows: nothing else may read or write the ledger meanwhile
-    const result = await withLedgerLock(deduplicateSheetTransactions);
-
-    // After deduplicating, ensure all existing drive file IDs in sheet are cached in database
-    const currentDriveIds = await getExistingDriveFileIds();
-    if (currentDriveIds.size > 0) {
-      await markSlipsProcessedBatch(Array.from(currentDriveIds));
-    }
+    const result = await deduplicateTransactions();
 
     return NextResponse.json({
       success: true,
