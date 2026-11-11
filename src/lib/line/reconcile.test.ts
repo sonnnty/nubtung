@@ -10,6 +10,8 @@ import { resolveTransferDestination } from '../balance/transfer-destination.ts';
 import { planStatementImport } from '../statement/import-plan.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { computeAccountBalances } from '../balance/account-balances.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { BALANCE_ADJUSTMENT_CATEGORY } from '../balance/balance-adjustment.ts';
 import type { LedgerStore } from './ingest.ts';
 import type { KBankCard } from './kbank-card.ts';
 import type { DeleteOp, LineAlert, LineRow, SlipFact, SlipResult, StoredCard, UpdateOp } from './reconcile.ts';
@@ -533,6 +535,34 @@ describe('rows edited by hand', () => {
     assert.equal(res.warnings.length, 1);
     const manual = store.rows.find(r => r.id === 'm1')!;
     assert.deepEqual([manual.note, manual.source], ['จดเอง', 'MANUAL']);
+  });
+
+  it('never takes a balance adjustment row for the match of a card or slip, and does not flag it as a duplicate', async () => {
+    const adjustment: LineRow = {
+      id: 'adj1', date: '2026-11-09', time: '21:28:00', type: 'EXPENSE', amount: 150, category: BALANCE_ADJUSTMENT_CATEGORY,
+      account: KPLUS, note: 'รายการปรับจำนวนเงิน: ให้ยอดตรงกับธนาคาร', source: 'MANUAL',
+    };
+    store.rows.push({ ...adjustment });
+    // Same account, amount and minute as the adjustment: a real card, then a real slip
+    const res = await ingestCard(out(150, '13,698.33'), store);
+    assert.equal(res.status, 'added');
+    assert.equal(res.warnings.length, 0);
+    assert.equal(store.alerts.size, 0);
+    store.addSlip(slip('a'));
+    await reconcileSlips(store);
+    assert.deepEqual(store.rows.find(r => r.id === 'adj1'), adjustment);
+    const merged = store.rows.filter(r => r.id !== 'adj1');
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].source, 'LINE+SLIP');
+  });
+
+  it('a card does not attach to an adjustment row even once its source is no longer MANUAL', async () => {
+    store.rows.push({
+      id: 'adj2', date: '2026-11-09', time: '21:28:00', type: 'EXPENSE', amount: 150, category: BALANCE_ADJUSTMENT_CATEGORY,
+      account: KPLUS, note: 'adjustment', source: 'LINE+SLIP',
+    });
+    const res = await ingestCard(out(150, '13,698.33'), store);
+    assert.equal(res.status, 'added');
   });
 
   it('a change made after the plan was read blocks the write', async () => {

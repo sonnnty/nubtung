@@ -7,6 +7,8 @@ import { parseStatement } from './statement-text.ts';
 import { planStatementImport, reconcileStatementRows, statementRowNote, typeLabel } from './import-plan.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { resolveTransferDestination } from '../balance/transfer-destination.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { BALANCE_ADJUSTMENT_CATEGORY } from '../balance/balance-adjustment.ts';
 import type { StatementTransaction } from './statement-text.ts';
 import type { LedgerRow, PlannedRow, SheetRow, StatementImport } from './import-plan.ts';
 
@@ -257,5 +259,42 @@ describe('reconcileStatementRows (Drive path)', () => {
     assert.strictEqual(matched[6], kplusStatement().transactions[0].details);
     assert.strictEqual(res.rows.filter(r => r[5] === MAKE).length, 2);
     assert.strictEqual(res.addedTransfers, 0);
+  });
+});
+
+describe('balance adjustment rows are never the match of a statement row', () => {
+  const adjustment = (account: string, date: string, amount: number, type: LedgerRow['type'] = 'EXPENSE'): LedgerRow =>
+    ({ account, date, amount, type, source: 'MANUAL', category: BALANCE_ADJUSTMENT_CATEGORY });
+
+  it('email path: a real statement row of the same account, date and amount is still added', () => {
+    // The same K PLUS expense of 750 on 2026-10-13 that a MANUAL row matches (see above)
+    const withManual = planStatementImport([manual(KPLUS, '2026-10-13', 750)], [kplusStatement()]);
+    const withAdjustment = planStatementImport([adjustment(KPLUS, '2026-10-13', 750)], [kplusStatement()]);
+    const expense750 = (rows: PlannedRow[]) =>
+      rows.filter(r => r.account === KPLUS && r.type === 'EXPENSE' && r.date === '2026-10-13' && r.amount === 750);
+    assert.strictEqual(expense750(withManual.toAppend).length, 0);
+    assert.strictEqual(expense750(withAdjustment.toAppend).length, 1);
+  });
+
+  it('email path: it does not count as a slip row that satisfies the receiving side of a transfer', () => {
+    // Make's statement shows a 1000 receipt from K PLUS on 2026-10-08
+    const plain = planStatementImport([], [makeStatement()]);
+    const asSender = planStatementImport([adjustment(KPLUS, '2026-10-08', 1000, 'EXPENSE')], [makeStatement()]);
+    const asReceiver = planStatementImport([adjustment(MAKE, '2026-10-08', 1000, 'INCOME')], [makeStatement()]);
+    assert.strictEqual(asSender.toAppend.length, plain.toAppend.length);
+    assert.strictEqual(asReceiver.toAppend.length, plain.toAppend.length);
+    assert.strictEqual(asSender.matched, plain.matched);
+  });
+
+  it('Drive path: the statement row is written fresh and the adjustment row is kept as it is', () => {
+    const row = (date: string, time: string, type: LedgerRow['type'], amount: number, account: string, category: string, id: string): SheetRow =>
+      [date, time, typeLabel(type), amount, category, account, 'note', '-', id, '', 'MANUAL'];
+    const adj = row('2026-10-28', '19:03:00', 'EXPENSE', 427, MAKE, BALANCE_ADJUSTMENT_CATEGORY, 'adj_1');
+    const res = reconcileStatementRows([adj], [makeStatement()]);
+    assert.ok(res.rows.some(r => r === adj));
+    const written = res.rows.find(r => r[0] === '2026-10-28' && r[3] === 427 && r !== adj)!;
+    assert.ok(written);
+    assert.strictEqual(written[10], 'STATEMENT');
+    assert.strictEqual(res.perAccount[MAKE].matched, 0);
   });
 });
