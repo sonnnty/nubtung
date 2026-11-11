@@ -295,6 +295,7 @@ export default function DashboardPage() {
           loading={loading}
           accountBalances={overallSummary?.accountBalances}
           totalCashInAccounts={overallSummary?.totalCashInAccounts}
+          onBalanceAdjusted={fetchData}
         />
 
         {/* Visual Charts Grid: Trend Chart & Category Donut Chart */}

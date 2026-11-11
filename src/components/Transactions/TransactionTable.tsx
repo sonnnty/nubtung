@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 import { readJson } from '@/lib/utils/http';
+import { isBalanceAdjustment } from '@/lib/balance/balance-adjustment';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -385,6 +386,14 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                         <span className="text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md font-medium">
                           {tx.account}
                         </span>
+                        {isBalanceAdjustment(tx) && (
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md font-semibold"
+                            title="รายการปรับให้ยอดตรงกับธนาคาร ไม่นับเป็นรายรับ/รายจ่าย (ลบได้)"
+                          >
+                            ปรับยอด
+                          </span>
+                        )}
                         {isManual && (
                           <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md font-semibold">
                             บันทึกเอง
@@ -506,6 +515,16 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
                       <td className="px-5 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">
                         {tx.category}
+                        {isBalanceAdjustment(tx) && (
+                          <span className="ml-1.5 align-middle">
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md font-semibold"
+                              title="รายการปรับให้ยอดตรงกับธนาคาร ไม่นับเป็นรายรับ/รายจ่าย (ลบได้)"
+                          >
+                              ปรับยอด
+                          </span>
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-3 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
