@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTransactions, getTaxProfile, saveTaxProfile } from '@/lib/db/transactions';
 import { calculateTax, defaultDeductions, defaultIncome } from '@/lib/tax/tax-engine';
 import { categorizeTransactionsForTax } from '@/lib/tax/category-mapping';
+import { withoutBalanceAdjustments } from '@/lib/balance/balance-adjustment';
 import { TaxDeductions, IncomeBySection } from '@/lib/tax/tax-types';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch transactions for the year
     const transactions = await getTransactions();
-    const yearTransactions = transactions.filter((tx) => {
+    const yearTransactions = withoutBalanceAdjustments(transactions).filter((tx) => {
       if (!tx.date) return false;
       return tx.date.startsWith(String(year));
     });

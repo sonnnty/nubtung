@@ -6,30 +6,14 @@ import { computeAccountBalancesWithCards, type BalanceCard } from '@/lib/balance
 import { getStatementBalances, type StatementBalance } from '@/lib/db';
 import { getOpenLineAlerts, withLedgerLock, type OpenLineAlert } from '@/lib/db/line-ledger';
 import { getLatestLineCards } from '@/lib/line/latest-cards';
+import { summarizeTransactions } from '@/lib/summary/totals';
 
 export async function GET() {
   try {
     const transactions = await getAllTransactions();
 
-    let totalIncome = 0;
-    let totalExpense = 0;
-    let transferTotal = 0;
-    const accountBreakdown: Record<string, number> = {};
-    const categoryBreakdown: Record<string, number> = {};
-
-    for (const tx of transactions) {
-      if (tx.type === 'INCOME') {
-        totalIncome += tx.amount;
-      } else if (tx.type === 'EXPENSE') {
-        totalExpense += tx.amount;
-        // Group expenses by category
-        categoryBreakdown[tx.category] = (categoryBreakdown[tx.category] || 0) + tx.amount;
-        // Group expenses by account
-        accountBreakdown[tx.account] = (accountBreakdown[tx.account] || 0) + tx.amount;
-      } else if (tx.type === 'TRANSFER') {
-        transferTotal += tx.amount;
-      }
-    }
+    // Balance adjustments are neither income nor spending, so they are left out of every total
+    const { totalIncome, totalExpense, transferTotal, accountBreakdown, categoryBreakdown } = summarizeTransactions(transactions);
 
     // Baseline balances as of 2026-09-04, or the newest statement's closing balance (ยอดยกไป) per account,
     // plus every transaction after that

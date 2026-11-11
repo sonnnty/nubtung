@@ -18,6 +18,8 @@ import {
   Info,
 } from 'lucide-react';
 import { readJson } from '@/lib/utils/http';
+import { summarizeTransactions } from '@/lib/summary/totals';
+import { isBalanceAdjustment, withoutBalanceAdjustments } from '@/lib/balance/balance-adjustment';
 
 const THAI_MONTHS = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -115,50 +117,38 @@ export default function DashboardPage() {
     });
   }, [allTransactions, periodMode, selectedDate, useSalaryCycle]);
 
+  // Balance adjustment rows stay in the list but are not income or spending: totals, categories and
+  // charts use the real rows only
+  const countedTransactions = useMemo(() => withoutBalanceAdjustments(filteredTransactions), [filteredTransactions]);
+
   // Compute metrics for the filtered period
   const periodMetrics = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let transfer = 0;
-    const categoryMap: Record<string, number> = {};
-    const accountMap: Record<string, number> = {};
-
-    for (const tx of filteredTransactions) {
-      const amount = tx.amount || 0;
-      if (tx.type === 'INCOME') {
-        income += amount;
-      } else if (tx.type === 'EXPENSE') {
-        expense += amount;
-        categoryMap[tx.category] = (categoryMap[tx.category] || 0) + amount;
-        accountMap[tx.account] = (accountMap[tx.account] || 0) + amount;
-      } else if (tx.type === 'TRANSFER') {
-        transfer += amount;
-      }
-    }
+    const { totalIncome, totalExpense, transferTotal, categoryBreakdown, accountBreakdown } =
+      summarizeTransactions(countedTransactions);
 
     const summary: DashboardSummary = {
-      totalIncome: income,
-      totalExpense: expense,
-      netBalance: income - expense,
-      transferTotal: transfer,
-      categoryBreakdown: categoryMap,
-      accountBreakdown: accountMap,
+      totalIncome,
+      totalExpense,
+      netBalance: totalIncome - totalExpense,
+      transferTotal,
+      categoryBreakdown,
+      accountBreakdown,
       recentTransactions: filteredTransactions.slice(0, 10),
     };
 
     return summary;
-  }, [filteredTransactions]);
+  }, [countedTransactions, filteredTransactions]);
 
   // Prepare chart time-series data based on active period
   const chartData = useMemo<ChartDataPoint[]>(() => {
-    if (filteredTransactions.length === 0) return [];
+    if (countedTransactions.length === 0) return [];
 
     if (periodMode === 'ALL' || periodMode === 'YEAR') {
       // Group by Month (e.g. ต.ค. 25, พ.ย. 25, ม.ค. 26...)
       const monthMap = new Map<string, { income: number; expense: number }>();
 
       // Sort chronological
-      const sorted = [...filteredTransactions].sort((a, b) => {
+      const sorted = [...countedTransactions].sort((a, b) => {
         const timeA = new Date(`${a.date}T${a.time}`).getTime();
         const timeB = new Date(`${b.date}T${b.time}`).getTime();
         if (!isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
@@ -185,7 +175,7 @@ export default function DashboardPage() {
     } else {
       // Group by Day (e.g. 1 ก.ย., 2 ก.ย., ...)
       const dayMap = new Map<string, { income: number; expense: number }>();
-      const sorted = [...filteredTransactions].sort((a, b) => {
+      const sorted = [...countedTransactions].sort((a, b) => {
         const timeA = new Date(`${a.date}T${a.time}`).getTime();
         const timeB = new Date(`${b.date}T${b.time}`).getTime();
         if (!isNaN(timeA) && !isNaN(timeB)) return timeA - timeB;
@@ -210,7 +200,7 @@ export default function DashboardPage() {
         net: val.income - val.expense,
       }));
     }
-  }, [filteredTransactions, periodMode]);
+  }, [countedTransactions, periodMode]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
@@ -426,6 +416,14 @@ export default function DashboardPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                            {isBalanceAdjustment(tx) && (
+                              <span
+                                className="mr-1.5 px-1.5 py-0.5 rounded-md border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 text-[9px] font-semibold align-middle"
+                                title="รายการปรับให้ยอดตรงกับธนาคาร ไม่นับเป็นรายรับ/รายจ่าย"
+                              >
+                                ปรับยอด
+                              </span>
+                            )}
                             {tx.note || tx.category}
                           </p>
                           <p className="text-[11px] text-slate-400 dark:text-slate-500">
