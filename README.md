@@ -95,14 +95,14 @@ npm start
 ### รันเทสต์:
 เทสต์คือไฟล์ `*.test.ts` ข้างโค้ด ใช้ test runner ของ Node (ต้องเป็น Node ที่รองรับ TypeScript type stripping เช่น Node 22 จาก nodejs.org หรืออิมเมจ `node:22-slim`):
 ```bash
-node --test --experimental-strip-types src/lib/statement/*.test.ts src/lib/balance/*.test.ts src/lib/line/*.test.ts src/lib/utils/*.test.ts
+node --test --experimental-strip-types src/lib/statement/*.test.ts src/lib/balance/*.test.ts src/lib/line/*.test.ts src/lib/utils/*.test.ts src/lib/summary/*.test.ts src/lib/tax/*.test.ts
 ```
 
 เทสต์ของ Postgres (การย้ายข้อมูล, การส่งไป Sheet, การเขียนพร้อมกัน) ต้องมี Postgres จริง และใช้ Sheet จำลอง จึงไม่เรียก Google:
 ```bash
 docker run -d --name nubtang-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=nubtang_test -p 5433:5432 postgres:16-alpine
 TEST_DATABASE_URL=postgresql://postgres:test@localhost:5433/nubtang_test \
-  node --test --test-concurrency=1 --experimental-strip-types src/lib/sheet-mirror/*.pg.test.ts
+  node --test --test-concurrency=1 --experimental-strip-types src/lib/sheet-mirror/*.pg.test.ts src/lib/db/*.pg.test.ts
 docker rm -f nubtang-test-pg
 ```
 
@@ -135,6 +135,18 @@ POST /api/webhook/line-card
 - **แถวที่แก้เอง:** การแก้ในเว็บแอปจะถูกบันทึกใน Postgres (`transactions.edited_at`) การกระทบยอดจะไม่เขียนทับแถวเหล่านี้ แถว `MANUAL` ไม่ถูกแตะ และสลิปที่ตรงกับแถวที่แก้เองจะไม่ถูกเพิ่มเป็นแถวใหม่
 - เงินเข้าที่ไม่มีสลิปคงเป็น "รอระบุ" กรองได้จากตัวเลือก "⏳ รอระบุ" ในหน้ารายการ
 - งานที่อ่านแล้วเขียนรายการทำทีละงานด้วย Postgres advisory lock และทั้งงานอยู่ใน DB transaction เดียว (พร้อมรายการที่จะส่งไป Sheet)
+
+### ยอดคงเหลือ ส่วนต่างจากธนาคาร และรายการปรับจำนวนเงิน
+ยอดของ K PLUS และ Make by KBank ที่แสดงบนแดชบอร์ดมาจากการ์ด "KBank Live" ใบล่าสุด (`line_cards`) ส่วนยอดในสมุดบัญชี (ledger) คำนวณจากยอดตั้งต้น/ยอดยกไปของ e-statement + รายการที่ลงวันที่ถึงนาทีของการ์ดใบนั้น (`computeAccountBalancesWithCards` ใน `src/lib/balance/account-balances.ts`) **ส่วนต่าง = ledger − ยอดการ์ด** ถ้าไม่เป็น 0 แดชบอร์ดจะขึ้น "ข้อมูลในระบบมากกว่า/น้อยกว่าธนาคาร"
+
+ถ้าไม่อยากตามหาทุกแถวที่ตกหล่น กดปุ่ม **"ปรับยอดให้ตรงธนาคาร"** ข้างป้ายส่วนต่างนั้น (ยืนยันก่อนเพิ่ม) ระบบจะเพิ่มแถว **รายการปรับจำนวนเงิน** หนึ่งแถว (`POST /api/transactions/balance-adjustment` body `{ "account": "K PLUS" }`):
+
+- ประเภท INCOME เมื่อ ledger ต่ำกว่าธนาคาร, EXPENSE เมื่อสูงกว่า จำนวนเงิน = |ส่วนต่าง| คำนวณใหม่ฝั่งเซิร์ฟเวอร์จาก DB ภายใต้ ledger lock (ไม่รับจำนวนเงินจากหน้าเว็บ) ถ้าส่วนต่างเป็น 0 ไม่เพิ่มอะไร จึงกดซ้ำได้โดยไม่เพิ่มแถว
+- หมวด `ปรับยอดเงิน` (ค่าคงที่ `BALANCE_ADJUSTMENT_CATEGORY` ใน `src/lib/balance/balance-adjustment.ts`) วัน-เวลาเท่ากับการ์ดใบล่าสุด (แถวที่นาทีเดียวกับ cutoff นับรวม จึงปิดส่วนต่างได้พอดี) source `MANUAL` หมายเหตุ `รายการปรับจำนวนเงิน: ให้ยอดตรงกับธนาคาร (KBank Live <วัน เวลา> ยอด <ยอดการ์ด>)` เขียนผ่านทางเดียวกับแถวอื่นจึงไปอยู่ในคิวส่งไป Sheet ด้วย
+- **ไม่ใช่รายรับ/รายจ่ายจริง:** ไม่นับในรายรับ รายจ่าย สัดส่วนหมวดหมู่ กราฟ สรุป LINE ("สรุป") และรายได้เพื่อคำนวณภาษี แต่ **นับในยอดคงเหลือของบัญชี** ในหน้ารายการยังเห็นพร้อมป้าย "ปรับยอด" และลบได้ (ลบแล้วส่วนต่างกลับมา)
+- **การจับคู่ข้ามแถวนี้:** การนำเข้า statement, การกระทบสลิป, การจับคู่การ์ด และการลบรายการซ้ำ จะไม่นับแถวปรับยอดเป็นแถวที่ตรงกับรายการจริง
+- **เมื่อมี e-statement ใหม่:** ยอดปิด (ยอดยกไป) ของ statement จะตั้งยอดบัญชีใหม่ ณ สิ้นงวด แถวปรับยอดที่ลงวันที่ **ไม่เกินวันสิ้นงวดของ statement นั้น** จึงหยุดมีผลต่อยอด (เป็นไปตามที่ตั้งใจ เพราะ statement คือยอดจริงของธนาคารแล้ว) แถวยังอยู่ในรายการเพื่อการตรวจย้อนหลัง
+- ข้อควรระวัง: ถ้าภายหลังมีแถวจริงที่ตกหล่น (วันที่ก่อนการ์ดใบนั้น) ถูกเพิ่มเข้ามา ส่วนต่างจะกลับมา (แถวปรับยอดเดิมนับซ้ำกับแถวนั้น) ให้ลบแถวปรับยอดเดิมหรือกดปรับยอดอีกครั้ง
 
 ---
 

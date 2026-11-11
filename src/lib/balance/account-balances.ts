@@ -63,7 +63,7 @@ export interface AccountBalancesWithCards extends AccountBalances {
   totalCash: number;
 }
 
-function minuteKey(time: string | undefined): string {
+export function minuteKey(time: string | undefined): string {
   if (!time) return '00:00';
   const m = time.trim().match(/^(\d{1,2}):(\d{2})/);
   return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '00:00';

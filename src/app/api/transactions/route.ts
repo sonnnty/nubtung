@@ -2,56 +2,26 @@ import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction } from '@/lib/db/transactions';
 import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
 import { Transaction, DashboardSummary } from '@/types';
-import { computeAccountBalancesWithCards, type BalanceCard } from '@/lib/balance/account-balances';
-import { getStatementBalances, type StatementBalance } from '@/lib/db';
+import { computeLedgerState } from '@/lib/db/balance-adjustment';
 import { getOpenLineAlerts, withLedgerLock, type OpenLineAlert } from '@/lib/db/line-ledger';
-import { getLatestLineCards } from '@/lib/line/latest-cards';
+import { summarizeTransactions } from '@/lib/summary/totals';
 
 export async function GET() {
   try {
     const transactions = await getAllTransactions();
 
-    let totalIncome = 0;
-    let totalExpense = 0;
-    let transferTotal = 0;
-    const accountBreakdown: Record<string, number> = {};
-    const categoryBreakdown: Record<string, number> = {};
-
-    for (const tx of transactions) {
-      if (tx.type === 'INCOME') {
-        totalIncome += tx.amount;
-      } else if (tx.type === 'EXPENSE') {
-        totalExpense += tx.amount;
-        // Group expenses by category
-        categoryBreakdown[tx.category] = (categoryBreakdown[tx.category] || 0) + tx.amount;
-        // Group expenses by account
-        accountBreakdown[tx.account] = (accountBreakdown[tx.account] || 0) + tx.amount;
-      } else if (tx.type === 'TRANSFER') {
-        transferTotal += tx.amount;
-      }
-    }
+    // Balance adjustments are neither income nor spending, so they are left out of every total
+    const { totalIncome, totalExpense, transferTotal, accountBreakdown, categoryBreakdown } = summarizeTransactions(transactions);
 
     // Baseline balances as of 2026-09-04, or the newest statement's closing balance (ยอดยกไป) per account,
-    // plus every transaction after that
-    let anchors: StatementBalance[] = [];
-    try {
-      anchors = await getStatementBalances();
-    } catch (err: unknown) {
-      console.error('Error reading statement balances, using the 2026-09-04 baseline only:', err instanceof Error ? err.message : err);
-    }
-    let lineCards: BalanceCard[] = [];
-    try {
-      lineCards = await getLatestLineCards();
-    } catch (err: unknown) {
-      console.error('Error reading LINE card balances, using ledger balances only:', err instanceof Error ? err.message : err);
-    }
+    // plus every transaction after that; K PLUS and Make show the newest KBank Live card's balance
     const {
       balances: dynamicAccountBalances,
       asOf: accountBalanceAsOf,
       gaps: accountBalanceGaps,
       cardTimes: accountCardTimes,
       totalCash: totalCashInAccounts,
-    } = computeAccountBalancesWithCards(transactions, anchors, lineCards);
+    } = await computeLedgerState(transactions, true);
 
     const summary: DashboardSummary = {
       totalIncome,

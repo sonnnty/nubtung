@@ -4,6 +4,7 @@ import { analyzeSlipImage } from '@/lib/ai/gemini-slip-ocr';
 import { checkRecentTransferDuplicate, recordTransferSlip } from '@/lib/db';
 import { Transaction, TransactionType } from '@/types';
 import { getBangkokDateString, getBangkokTimeString } from '@/lib/utils/date';
+import { summarizeTransactions } from '@/lib/summary/totals';
 
 export function getLineClient() {
   const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -61,13 +62,7 @@ async function handleTextMessage(replyToken: string, text: string) {
   // 1. Command: "สรุป" or "ยอดคงเหลือ"
   if (/^(สรุป|ยอดคงเหลือ|ดูยอด|ภาพรวม|balance|summary)$/i.test(trimmed)) {
     const allTxs = await getAllTransactions();
-    let income = 0;
-    let expense = 0;
-
-    for (const tx of allTxs) {
-      if (tx.type === 'INCOME') income += tx.amount;
-      else if (tx.type === 'EXPENSE') expense += tx.amount;
-    }
+    const { totalIncome: income, totalExpense: expense } = summarizeTransactions(allTxs);
 
     const net = income - expense;
     const replyText = `📊 สรุปยอดการเงินล่าสุด (นับตังค์)\n` +

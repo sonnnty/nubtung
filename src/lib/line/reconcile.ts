@@ -21,6 +21,8 @@ import { internalTransferNote, isLineSourced } from '../statement/import-plan.ts
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { resolveTransferDestination } from '../balance/transfer-destination.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { isBalanceAdjustment } from '../balance/balance-adjustment.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { trackedAccountFromNumber } from '../statement/accounts.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { cardRowId } from './kbank-card.ts';
@@ -180,7 +182,7 @@ export interface CardPlan {
 
 /** Can this finished row (slip, statement or a row the owner decided) carry the card without changing? */
 function canAttachCard(row: LineRow, card: KBankCard, links: Map<string, StoredCard[]>): boolean {
-  if (row.source === 'MANUAL' || isOpen(row)) return false;
+  if (row.source === 'MANUAL' || isBalanceAdjustment(row) || isOpen(row)) return false;
   if (!sameAmount(row.amount, card.amount) || minutesApart(row, card) > SLIP_MATCH_MINUTES) return false;
   if ((links.get(row.id) || []).some(c => c.direction === card.direction)) return false;
   if (card.direction === 'OUT') {
@@ -230,8 +232,9 @@ export function planCardIngest(card: KBankCard, view: LedgerView): CardPlan {
   }
 
   const alerts: LineAlert[] = [];
+  // A balance adjustment is not something the owner typed in for this card
   const manual = view.rows.find(r =>
-    r.source === 'MANUAL' && r.account === card.account && sameAmount(r.amount, card.amount) &&
+    r.source === 'MANUAL' && !isBalanceAdjustment(r) && r.account === card.account && sameAmount(r.amount, card.amount) &&
     minutesApart(r, card) <= SLIP_MATCH_MINUTES);
   if (manual) {
     alerts.push({

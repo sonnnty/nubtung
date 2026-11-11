@@ -1,6 +1,9 @@
-import { query } from '@/lib/db';
-import { initLineLedgerSchema } from '@/lib/db/line-ledger';
-import type { BalanceCard } from '@/lib/balance/account-balances';
+// Relative imports: the Postgres tests load this module without the `@/` alias.
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { query } from '../db/index.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { initLineLedgerSchema } from '../db/line-ledger.ts';
+import type { BalanceCard } from '../balance/account-balances.ts';
 
 /** Reads the newest KBank Live card per account from Postgres by highest (txn_date, txn_time, seq) */
 export async function getLatestLineCards(): Promise<BalanceCard[]> {

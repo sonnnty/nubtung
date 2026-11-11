@@ -8,6 +8,8 @@ import { withLedgerLock } from './line-ledger.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { rowToTaxProfile, taxProfileToRow } from '../sheet-mirror/cells.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { isBalanceAdjustment } from '../balance/balance-adjustment.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { isLineSourced } from '../statement/import-plan.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { normalizeDateString, normalizeTimeString } from '../utils/date.ts';
@@ -351,7 +353,7 @@ export async function updateManualTransaction(tx: {
 /**
  * Removes duplicate rows, oldest row kept: same Drive file, or same date + time + amount + account.
  * Not for LINE rows on the second rule (minute precision; two equal purchases are two real cards),
- * and never a row the owner edited.
+ * and never a row the owner edited. Balance adjustment rows are left out of the comparison.
  */
 export async function deduplicateTransactions(): Promise<{ beforeCount: number; afterCount: number; removedCount: number }> {
   await assertSheetMigrated();
@@ -362,6 +364,9 @@ export async function deduplicateTransactions(): Promise<{ beforeCount: number; 
     const duplicates: string[] = [];
 
     for (const row of res.rows) {
+      // Never a duplicate of a real row (even one of the same date, time, amount and account), and
+      // never the row a real one is dropped in favour of
+      if (isBalanceAdjustment(row)) continue;
       const driveFileId = (row.driveFileId || '').trim();
       let isDuplicate = false;
       if (driveFileId) {

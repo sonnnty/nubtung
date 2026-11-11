@@ -2,6 +2,8 @@
 // No `@/` imports here: this module is loaded directly by the node test runner.
 //
 // Rules:
+// - Balance adjustment rows (see balance-adjustment.ts) are not bank evidence: they never match a
+//   statement row, so a statement line with the same date and amount is still added / rewritten.
 // - A statement row matches an existing row on the statement's own account with the same date and
 //   amount (slip-first: the existing row stays as it is). Each existing row matches once.
 // - A transfer between two tracked accounts is stored once: as a TRANSFER on the *sending* account
@@ -13,6 +15,8 @@
 //     TRANSFER on the sending account.
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { resolveTransferDestination } from '../balance/transfer-destination.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { isBalanceAdjustment } from '../balance/balance-adjustment.ts';
 import type { StatementTransaction } from './statement-text.ts';
 
 export type TxType = 'EXPENSE' | 'INCOME' | 'TRANSFER';
@@ -26,6 +30,7 @@ export interface LedgerRow {
   slipUrl?: string;
   driveFileId?: string;
   source?: string;
+  category?: string;
 }
 
 export interface StatementImport {
@@ -224,6 +229,7 @@ function receiptRow(line: StatementLine): PlannedRow {
 export function planStatementImport(existing: LedgerRow[], statements: StatementImport[]): ImportPlan {
   const pool = new RowPool<LedgerRow>();
   for (const row of existing) {
+    if (isBalanceAdjustment(row)) continue;
     pool.add({ ...row, account: row.account || 'K PLUS' });
   }
 
@@ -289,6 +295,7 @@ function sheetRowToLedger(row: SheetRow): LedgerRow & { sheetRow: SheetRow } {
     slipUrl: String(row[7] || ''),
     driveFileId: String(row[9] || ''),
     source: String(row[10] || ''),
+    category: String(row[4] || ''),
     sheetRow: row,
   };
 }
@@ -314,10 +321,14 @@ export function reconcileStatementRows(existingRows: SheetRow[], statements: Sta
 
   const ownPool = new RowPool<LedgerRow & { sheetRow: SheetRow }>();
   const untouchedRows: SheetRow[] = [];
+  const adjustmentRows: SheetRow[] = [];
   const ownEntries: Array<PoolEntry<LedgerRow & { sheetRow: SheetRow }>> = [];
   for (const row of existingRows) {
     const ledger = sheetRowToLedger(row);
-    if (statementAccounts.has(ledger.account) && ledger.date && !isNaN(ledger.amount)) {
+    // Kept as they are, and never offered to a statement row or receipt as its match
+    if (isBalanceAdjustment(ledger)) {
+      adjustmentRows.push(row);
+    } else if (statementAccounts.has(ledger.account) && ledger.date && !isNaN(ledger.amount)) {
       ownEntries.push(ownPool.add(ledger));
     } else {
       untouchedRows.push(row);
@@ -384,7 +395,7 @@ export function reconcileStatementRows(existingRows: SheetRow[], statements: Sta
     receiptPool.add(sheetRowToLedger(row), { claimedOther: true });
   }
 
-  const rows = [...rewritten, ...keptUnmatched, ...addedRows, ...untouchedRows];
+  const rows = [...rewritten, ...keptUnmatched, ...addedRows, ...untouchedRows, ...adjustmentRows];
   rows.sort((a, b) => `${b[0] || ''} ${b[1] || ''}`.localeCompare(`${a[0] || ''} ${a[1] || ''}`));
 
   return { rows, perAccount, addedTransfers: addedRows.length, untouched: untouchedRows.length };

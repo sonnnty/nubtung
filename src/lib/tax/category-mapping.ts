@@ -7,6 +7,8 @@ import type {
 } from './tax-types.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { defaultIncome } from './tax-engine.ts';
+// @ts-expect-error - node test runner requires .ts extension for ESM strip-types
+import { isBalanceAdjustment } from '../balance/balance-adjustment.ts';
 
 export type {
   ExemptionReason,
@@ -216,6 +218,10 @@ export function categorizeTransactionsForTax(
   for (const tx of transactions) {
     // Only process INCOME transactions (ignore EXPENSE and TRANSFER)
     if (tx.type && tx.type !== 'INCOME') {
+      continue;
+    }
+    // A balance adjustment only aligns the ledger with the bank; it is not income
+    if (isBalanceAdjustment(tx)) {
       continue;
     }
 

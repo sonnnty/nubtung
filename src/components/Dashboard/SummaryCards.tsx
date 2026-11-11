@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Repeat, Wallet, Building2 } from 'lucide-react';
 import { DashboardSummary } from '@/types';
+import { describeBalanceAdjustment } from '@/lib/balance/balance-adjustment';
+import { readJson } from '@/lib/utils/http';
 
 interface SummaryCardsProps {
   summary: DashboardSummary | null;
@@ -11,6 +14,8 @@ interface SummaryCardsProps {
   makeBalance?: number;
   accountBalances?: Record<string, number>;
   totalCashInAccounts?: number;
+  /** Called after a balance adjustment row was added, to reload the dashboard data */
+  onBalanceAdjusted?: () => void | Promise<void>;
 }
 
 export default function SummaryCards({
@@ -21,7 +26,10 @@ export default function SummaryCards({
   makeBalance,
   accountBalances,
   totalCashInAccounts,
+  onBalanceAdjusted,
 }: SummaryCardsProps) {
+  const [adjustingAccount, setAdjustingAccount] = useState<string | null>(null);
+
   const cards = [
     {
       title: 'รายรับในช่วงเวลา',
@@ -89,6 +97,41 @@ export default function SummaryCards({
   const formatMoney = (amount: number) =>
     amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  // Adds one row that brings the ledger to the bank's balance. The server works the amount out again
+  // from the database; this only names the account.
+  const handleAdjust = async (account: string, gap: number) => {
+    if (!confirm(`${describeBalanceAdjustment(account, gap)}\n\nรายการนี้ไม่นับเป็นรายรับ/รายจ่าย และลบทิ้งได้ในหน้ารายการ`)) {
+      return;
+    }
+    setAdjustingAccount(account);
+    try {
+      const res = await fetch('/api/transactions/balance-adjustment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account }),
+      });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(data.error || 'ปรับยอดไม่สำเร็จ');
+      await onBalanceAdjusted?.();
+    } catch (err: unknown) {
+      alert(`ปรับยอดไม่สำเร็จ: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setAdjustingAccount(null);
+    }
+  };
+
+  const renderAdjustButton = (account: string, gap: number) => (
+    <button
+      type="button"
+      onClick={() => handleAdjust(account, gap)}
+      disabled={adjustingAccount !== null}
+      className="mt-0.5 px-1.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 border border-white/30 text-white text-[8px] sm:text-[9px] font-semibold leading-tight transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+      title={describeBalanceAdjustment(account, gap)}
+    >
+      {adjustingAccount === account ? 'กำลังปรับยอด...' : 'ปรับยอดให้ตรงธนาคาร'}
+    </button>
+  );
+
   const renderCardStatus = (account: string) => {
     const cardTime = cardTimes[account];
     const gap = balanceGaps[account];
@@ -150,6 +193,7 @@ export default function SummaryCards({
             ข้อมูลในระบบน้อยกว่าธนาคาร -฿{formatMoney(Math.abs(gap))}
           </span>
         )}
+        {gap !== 0 && <div>{renderAdjustButton(account, gap)}</div>}
       </div>
     );
   };
