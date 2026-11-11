@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAllTransactions, appendTransactionRow, deleteTransactionRow, updateTransactionNote, updateManualTransaction } from '@/lib/db/transactions';
 import { normalizeDateString, normalizeTimeString } from '@/lib/utils/date';
 import { Transaction, DashboardSummary } from '@/types';
-import { computeAccountBalancesWithCards, type BalanceCard } from '@/lib/balance/account-balances';
-import { getStatementBalances, type StatementBalance } from '@/lib/db';
+import { computeLedgerState } from '@/lib/db/balance-adjustment';
 import { getOpenLineAlerts, withLedgerLock, type OpenLineAlert } from '@/lib/db/line-ledger';
-import { getLatestLineCards } from '@/lib/line/latest-cards';
 import { summarizeTransactions } from '@/lib/summary/totals';
 
 export async function GET() {
@@ -16,26 +14,14 @@ export async function GET() {
     const { totalIncome, totalExpense, transferTotal, accountBreakdown, categoryBreakdown } = summarizeTransactions(transactions);
 
     // Baseline balances as of 2026-09-04, or the newest statement's closing balance (ยอดยกไป) per account,
-    // plus every transaction after that
-    let anchors: StatementBalance[] = [];
-    try {
-      anchors = await getStatementBalances();
-    } catch (err: unknown) {
-      console.error('Error reading statement balances, using the 2026-09-04 baseline only:', err instanceof Error ? err.message : err);
-    }
-    let lineCards: BalanceCard[] = [];
-    try {
-      lineCards = await getLatestLineCards();
-    } catch (err: unknown) {
-      console.error('Error reading LINE card balances, using ledger balances only:', err instanceof Error ? err.message : err);
-    }
+    // plus every transaction after that; K PLUS and Make show the newest KBank Live card's balance
     const {
       balances: dynamicAccountBalances,
       asOf: accountBalanceAsOf,
       gaps: accountBalanceGaps,
       cardTimes: accountCardTimes,
       totalCash: totalCashInAccounts,
-    } = computeAccountBalancesWithCards(transactions, anchors, lineCards);
+    } = await computeLedgerState(transactions, true);
 
     const summary: DashboardSummary = {
       totalIncome,

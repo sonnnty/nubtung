@@ -3,13 +3,7 @@ import assert from 'node:assert';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
 import { computeAccountBalancesWithCards } from './account-balances.ts';
 // @ts-expect-error - node test runner requires .ts extension for ESM strip-types
-import {
-  BALANCE_ADJUSTMENT_CATEGORY,
-  describeBalanceAdjustment,
-  isBalanceAdjustment,
-  planBalanceAdjustment,
-  withoutBalanceAdjustments,
-} from './balance-adjustment.ts';
+import { BALANCE_ADJUSTMENT_CATEGORY, describeBalanceAdjustment, isBalanceAdjustment, planBalanceAdjustment, withoutBalanceAdjustments } from './balance-adjustment.ts';
 import type { BalanceCard, BalanceTransaction } from './account-balances.ts';
 
 const KPLUS = 'K PLUS';
