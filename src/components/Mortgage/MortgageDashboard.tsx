@@ -7,7 +7,7 @@ import {
   Plus,
   ShieldCheck,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   Layers,
 } from 'lucide-react';
 import MortgageOverviewCards from './MortgageOverviewCards';
@@ -15,6 +15,7 @@ import MortgageCharts from './MortgageCharts';
 import MortgageSimulator from './MortgageSimulator';
 import MortgageHistoryTable from './MortgageHistoryTable';
 import ManualPaymentModal from './ManualPaymentModal';
+import { Badge, Button } from '@/components/ui';
 import { DEFAULT_INTEREST_CONFIG } from '@/lib/mortgage/types';
 import type { MortgageSummary, MortgagePayment } from '@/lib/mortgage/types';
 import { readJson } from '@/lib/utils/http';
@@ -35,7 +36,6 @@ export default function MortgageDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Fetch mortgage data from API
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch('/api/mortgage');
@@ -77,7 +77,6 @@ export default function MortgageDashboard() {
     };
   }, []);
 
-  // Handle GH Bank Email Sync
   const handleSync = async () => {
     if (syncing) return;
     setSyncing(true);
@@ -94,7 +93,7 @@ export default function MortgageDashboard() {
       if (data.addedCount > 0) {
         setToast({
           type: 'success',
-          message: `ซิงค์สำเร็จ! พบใบเสร็จ ธอส. ใหม่ ${data.addedCount} รายการ`,
+          message: `ซิงค์สำเร็จ พบใบเสร็จ ธอส. ใหม่ ${data.addedCount} รายการ`,
         });
       } else {
         setToast({
@@ -117,13 +116,11 @@ export default function MortgageDashboard() {
     }
   };
 
-  // Filter payments based on selected account tab
   const filteredPayments =
     selectedTab === 'ALL'
       ? payments
       : payments.filter((p) => p.accountId === selectedTab);
 
-  // Selected account metadata for simulator
   const activeAccount =
     selectedTab === 'ALL'
       ? null
@@ -144,112 +141,113 @@ export default function MortgageDashboard() {
     selectedTab === 'ALL' ? 9500 : selectedTab === '011690010482' ? 600 : 8500;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6">
       {/* Toast Notification Banner */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-2xl shadow-2xl border max-w-md animate-in fade-in slide-in-from-top-3 duration-200 flex items-center gap-3 ${
-            toast.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
-              : 'bg-rose-50 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-800'
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          className={`fixed top-18 right-4 z-50 p-3.5 rounded-card shadow-popover border max-w-md w-[calc(100%-2rem)] sm:w-auto flex items-center gap-2.5 bg-surface ${
+            toast.type === 'success' ? 'border-income-border' : 'border-expense-border'
           }`}
         >
           {toast.type === 'success' ? (
-            <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-income shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-expense shrink-0" />
           )}
-          <span className="text-xs font-semibold">{toast.message}</span>
+          <span className="text-xs sm:text-sm font-medium text-ink">{toast.message}</span>
         </div>
       )}
 
-      {/* Header Section with Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              ติดตามการผ่อนบ้าน (Mortgage Tracker)
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+              ติดตามการผ่อนบ้าน
             </h1>
-            <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              ธอส. 2.2M
-            </span>
+            <Badge variant="accent">ธอส. 2.2M</Badge>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            ธนาคารอาคารสงเคราะห์ • บัญชีบ้านหลัก (2.1M) & ประกัน MRTA (100k)
+          <p className="text-xs sm:text-sm text-ink-muted mt-1">
+            ธนาคารอาคารสงเคราะห์ · บัญชีบ้านหลัก (2.1M) และประกัน MRTA (100k)
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
-          {/* Sync Button */}
-          <button
-            type="button"
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleSync}
             disabled={syncing}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all active:scale-95 text-white ${
-              syncing
-                ? 'bg-slate-400 cursor-not-allowed'
-                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-            }`}
             title="เชื่อมต่อและดึงใบเสร็จรับเงิน PDF ล่าสุดจาก Gmail"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'กำลังซิงค์อีเมล...' : 'Sync จากอีเมล ธอส.'}</span>
-          </button>
+            <span>{syncing ? 'กำลังซิงค์อีเมล...' : 'ซิงค์จากอีเมล ธอส.'}</span>
+          </Button>
 
-          {/* Manual Entry Button */}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-xs transition-all active:scale-95"
           >
-            <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>+ บันทึกด้วยตนเอง</span>
-          </button>
+            <Plus className="w-3.5 h-3.5" />
+            <span>บันทึกด้วยตนเอง</span>
+          </Button>
         </div>
       </div>
 
       {/* Account Switcher Tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800/70 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto">
+      <div
+        role="tablist"
+        aria-label="เลือกบัญชีสินเชื่อ"
+        className="flex items-center gap-1 p-1 bg-surface-subtle rounded-control border border-border overflow-x-auto no-scrollbar"
+      >
         <button
           type="button"
+          role="tab"
+          aria-selected={selectedTab === 'ALL'}
           onClick={() => setSelectedTab('ALL')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`min-h-9 flex items-center gap-2 px-3.5 py-1.5 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === 'ALL'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
+              : 'text-ink-secondary hover:text-ink border border-transparent'
           }`}
         >
-          <Layers className="w-3.5 h-3.5 text-emerald-500" />
+          <Layers className="w-3.5 h-3.5 shrink-0" />
           <span>ภาพรวมทั้งหมด (2.2M)</span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={selectedTab === '011690010474'}
           onClick={() => setSelectedTab('011690010474')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`min-h-9 flex items-center gap-2 px-3.5 py-1.5 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === '011690010474'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
+              : 'text-ink-secondary hover:text-ink border border-transparent'
           }`}
         >
-          <Home className="w-3.5 h-3.5 text-teal-500" />
+          <Home className="w-3.5 h-3.5 shrink-0" />
           <span>สินเชื่อบ้านหลัก (2.1M)</span>
-          <span className="text-[10px] text-slate-400 font-normal">#011690010474</span>
+          <span className="text-[11px] font-mono text-ink-muted">#011690010474</span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={selectedTab === '011690010482'}
           onClick={() => setSelectedTab('011690010482')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`min-h-9 flex items-center gap-2 px-3.5 py-1.5 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === '011690010482'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
+              : 'text-ink-secondary hover:text-ink border border-transparent'
           }`}
         >
-          <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
+          <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
           <span>สินเชื่อ MRTA (100k)</span>
-          <span className="text-[10px] text-slate-400 font-normal">#011690010482</span>
+          <span className="text-[11px] font-mono text-ink-muted">#011690010482</span>
         </button>
       </div>
 
@@ -260,7 +258,7 @@ export default function MortgageDashboard() {
         loading={loading}
       />
 
-      {/* 2. Visualizations (Stacked Bar & Balance Reduction) */}
+      {/* 2. Visualizations */}
       <MortgageCharts payments={filteredPayments} loading={loading} />
 
       {/* 3. Interactive Extra Payment Simulator */}
@@ -272,14 +270,14 @@ export default function MortgageDashboard() {
         defaultBasePayment={simulatorBasePayment}
       />
 
-      {/* 4. Payment History Table with Actions */}
+      {/* 4. Payment History Table */}
       <MortgageHistoryTable
         payments={filteredPayments}
         loading={loading}
         onRefresh={fetchData}
       />
 
-      {/* 5. Manual Payment Modal Dialog */}
+      {/* 5. Manual Payment Modal */}
       <ManualPaymentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
