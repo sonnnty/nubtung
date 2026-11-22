@@ -10,6 +10,7 @@ import {
   TaxBracketTable,
   IncomeBreakdownModal,
 } from '@/components/Tax';
+import { Alert, Badge, Button } from '@/components/ui';
 import {
   calculateTax,
   defaultIncome,
@@ -23,7 +24,6 @@ import type {
   TaxBreakdownTransaction,
 } from '@/lib/tax/tax-types';
 import {
-  Calculator,
   Calendar,
   RefreshCw,
   Save,
@@ -53,7 +53,7 @@ interface TaxApiResponse {
   transactionsBySection?: Record<keyof IncomeBySection, TaxBreakdownTransaction[]>;
   exemptTransactions?: TaxBreakdownTransaction[];
   userExcludedIds?: string[];
-  rawYearTransactions?: any[];
+  rawYearTransactions?: TaxBreakdownTransaction[];
 }
 
 export default function TaxPage() {
@@ -90,7 +90,7 @@ export default function TaxPage() {
     section40_8: [],
   });
   const [exemptTransactions, setExemptTransactions] = useState<TaxBreakdownTransaction[]>([]);
-  const [rawYearTransactions, setRawYearTransactions] = useState<any[]>([]);
+  const [rawYearTransactions, setRawYearTransactions] = useState<TaxBreakdownTransaction[]>([]);
   const [excludedTransactionIds, setExcludedTransactionIds] = useState<Set<string>>(new Set());
 
   // Breakdown Modal State
@@ -103,7 +103,9 @@ export default function TaxPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saved' | 'saving' | 'unsaved' | 'error'>('idle');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    'idle' | 'saved' | 'saving' | 'unsaved' | 'error'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
 
   const isInitialLoadedRef = useRef<boolean>(false);
@@ -136,9 +138,9 @@ export default function TaxPage() {
   // Fetch tax data for the selected year
   useEffect(() => {
     let ignore = false;
+    isInitialLoadedRef.current = false;
 
     async function loadData() {
-      setError(null);
       try {
         const res = await fetch(`/api/tax?year=${selectedYear}`);
         let data: TaxApiResponse | null = null;
@@ -155,6 +157,7 @@ export default function TaxPage() {
           throw new Error(data?.error || `ไม่สามารถดึงข้อมูลภาษีได้ (HTTP ${res.status})`);
         }
 
+        setError(null);
         const fetchedSynced: IncomeBySection = data.syncedIncome || defaultIncome;
         setSyncedIncome(fetchedSynced);
 
@@ -185,7 +188,7 @@ export default function TaxPage() {
           setWithholdingTax(0);
           setIsManualOverride(false);
         }
-        // Mark initial data load complete
+
         setTimeout(() => {
           if (!ignore) {
             isInitialLoadedRef.current = true;
@@ -204,8 +207,6 @@ export default function TaxPage() {
       }
     }
 
-    isInitialLoadedRef.current = false;
-    setAutoSaveStatus('idle');
     loadData();
 
     return () => {
@@ -217,7 +218,6 @@ export default function TaxPage() {
   useEffect(() => {
     if (!isInitialLoadedRef.current || loading) return;
 
-    setAutoSaveStatus('unsaved');
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
@@ -261,7 +261,6 @@ export default function TaxPage() {
     };
   }, [income, deductions, withholdingTax, selectedYear, loading, excludedTransactionIds]);
 
-  // Explicit sync triggered by user
   const handleExplicitSync = async () => {
     setSyncing(true);
     setError(null);
@@ -319,7 +318,6 @@ export default function TaxPage() {
     return calculateTax(income, deductions, withholdingTax);
   }, [income, deductions, withholdingTax]);
 
-  // Save tax profile to Google Sheets
   const handleSaveToSheet = async () => {
     setSaving(true);
     try {
@@ -348,10 +346,8 @@ export default function TaxPage() {
         );
       }
 
-      showNotification(
-        'success',
-        `บันทึกข้อมูลภาษีปี ${selectedYear} ลง Google Sheet สำเร็จแล้ว`
-      );
+      setAutoSaveStatus('saved');
+      showNotification('success', `บันทึกข้อมูลภาษีปี ${selectedYear} ลง Google Sheet สำเร็จแล้ว`);
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูลลง Google Sheet';
@@ -364,15 +360,23 @@ export default function TaxPage() {
   const handleIncomeChange = (key: keyof IncomeBySection, value: number) => {
     setIncome((prev) => ({ ...prev, [key]: value }));
     setIsManualOverride(true);
+    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
   };
 
   const handleDeductionChange = (key: keyof TaxDeductions, value: number) => {
     setDeductions((prev) => ({ ...prev, [key]: value }));
+    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
+  };
+
+  const handleWithholdingChange = (value: number) => {
+    setWithholdingTax(value);
+    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
   };
 
   const handleResetSynced = () => {
     setIncome(syncedIncome);
     setIsManualOverride(false);
+    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
     showNotification('info', 'รีเซ็ตข้อมูลรายได้กลับเป็นค่าที่คำนวณจากรายการธุรกรรมแล้ว');
   };
 
@@ -383,6 +387,8 @@ export default function TaxPage() {
   const handleYearChange = (year: number) => {
     if (saving || year === selectedYear) return;
     setLoading(true);
+    setError(null);
+    setAutoSaveStatus('idle');
     setSelectedYear(year);
   };
 
@@ -395,16 +401,13 @@ export default function TaxPage() {
         nextExcluded.add(txId);
       }
       setExcludedTransactionIds(nextExcluded);
+      if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
 
       const txsToCategorize =
         rawYearTransactions.length > 0
           ? rawYearTransactions
-          : [
-              ...Object.values(transactionsBySection).flat(),
-              ...exemptTransactions,
-            ];
+          : [...Object.values(transactionsBySection).flat(), ...exemptTransactions];
 
-      // Recompute with categorizeTransactionsForTax so income and exemptions reflect instantly
       const categorized = categorizeTransactionsForTax(txsToCategorize, nextExcluded);
       setSyncedIncome(categorized.syncedIncome);
       setTransactionsBySection(categorized.transactionsBySection);
@@ -454,37 +457,39 @@ export default function TaxPage() {
   }, [selectedBreakdownSection, transactionsBySection, exemptTransactions]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
+    <div className="min-h-screen flex flex-col bg-canvas transition-colors">
       <Navbar onSyncComplete={handleExplicitSync} />
 
       {/* Floating Notification Toast */}
       {notification && (
         <div
-          role="alert"
-          className={`fixed top-18 right-4 z-50 max-w-md w-[calc(100%-2rem)] sm:w-auto p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 backdrop-blur-md transition-all ${
+          role={notification.type === 'error' ? 'alert' : 'status'}
+          className={`fixed top-18 right-4 z-50 max-w-md w-[calc(100%-2rem)] sm:w-auto p-3.5 rounded-card shadow-popover border flex items-center justify-between gap-3 bg-surface ${
             notification.type === 'success'
-              ? 'bg-emerald-50/95 dark:bg-emerald-950/95 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+              ? 'border-income-border'
               : notification.type === 'error'
-              ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-              : 'bg-sky-50/95 dark:bg-sky-950/95 border-sky-300 dark:border-sky-800 text-sky-900 dark:text-sky-100'
+              ? 'border-expense-border'
+              : 'border-transfer-border'
           }`}
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {notification.type === 'success' && (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-income shrink-0" />
             )}
             {notification.type === 'error' && (
-              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-expense shrink-0" />
             )}
             {notification.type === 'info' && (
-              <Info className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0" />
+              <Info className="w-4 h-4 text-transfer shrink-0" />
             )}
-            <p className="text-xs sm:text-sm font-medium leading-snug">{notification.message}</p>
+            <p className="text-xs sm:text-sm font-medium text-ink leading-snug">
+              {notification.message}
+            </p>
           </div>
           <button
             type="button"
             onClick={() => setNotification(null)}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0 cursor-pointer"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-control text-ink-muted hover:text-ink hover:bg-surface-subtle transition-colors shrink-0 cursor-pointer"
             aria-label="ปิดการแจ้งเตือน"
           >
             <X className="w-4 h-4" />
@@ -492,28 +497,83 @@ export default function TaxPage() {
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 pb-28 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 pb-28 md:pb-10">
         {/* Page Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                <Calculator className="w-6 h-6" />
-              </div>
-              <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                คำนวณและวางแผนภาษี (Personal Income Tax)
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">
+                คำนวณและวางแผนภาษีเงินได้บุคคลธรรมดา
               </h1>
+              <p className="text-xs sm:text-sm text-ink-muted mt-1">
+                แบบแสดงรายการ ภ.ง.ด. 90/91 เชื่อมโยงรายรับจากบัญชีและคำนวณสิทธิลดหย่อนตามกฎหมาย
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-              คำนวณภาษีเงินได้บุคคลธรรมดา (ภ.ง.ด. 90/91) เชื่อมโยงบัญชีรายรับรายจ่าย พร้อมแนะนำสิทธิลดหย่อนเต็มพิกัด
-            </p>
+
+            {/* Auto-Save & Save Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant={
+                  autoSaveStatus === 'saved'
+                    ? 'income'
+                    : autoSaveStatus === 'error'
+                    ? 'expense'
+                    : autoSaveStatus === 'unsaved'
+                    ? 'warning'
+                    : autoSaveStatus === 'saving'
+                    ? 'transfer'
+                    : 'neutral'
+                }
+                className="py-1.5 px-2.5 text-xs"
+              >
+                {autoSaveStatus === 'saving' && (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>กำลังบันทึกอัตโนมัติ...</span>
+                  </>
+                )}
+                {autoSaveStatus === 'saved' && (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>บันทึกอัตโนมัติแล้ว</span>
+                  </>
+                )}
+                {autoSaveStatus === 'unsaved' && <span>รอการบันทึกอัตโนมัติ</span>}
+                {autoSaveStatus === 'error' && (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>บันทึกไม่สำเร็จ</span>
+                  </>
+                )}
+                {autoSaveStatus === 'idle' && (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>เปิดใช้งานบันทึกอัตโนมัติ</span>
+                  </>
+                )}
+              </Badge>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveToSheet}
+                disabled={saving || loading}
+                title="บันทึกข้อมูลภาษีและสิทธิลดหย่อนลง Google Sheets ทันที"
+              >
+                {saving ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>{saving ? 'กำลังบันทึก...' : 'บันทึกทันที'}</span>
+              </Button>
+            </div>
           </div>
 
-          {/* Action controls */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Year Selector */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto">
-              <Calendar className="w-4 h-4 text-slate-400 ml-2 mr-1 shrink-0" />
+          {/* Year & Sync Toolbar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 p-3 bg-surface border border-border rounded-card shadow-card">
+            <div className="flex items-center gap-1 p-1 bg-surface-subtle rounded-control border border-border overflow-x-auto no-scrollbar">
+              <Calendar className="w-4 h-4 text-ink-muted ml-2 mr-1 shrink-0" />
               {availableYears.map((yr) => {
                 const isSelected = yr === selectedYear;
                 return (
@@ -522,10 +582,11 @@ export default function TaxPage() {
                     type="button"
                     disabled={saving}
                     onClick={() => handleYearChange(yr)}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    aria-pressed={isSelected}
+                    className={`min-h-9 sm:min-h-8 px-3 py-1 rounded-badge text-xs font-medium transition-colors shrink-0 cursor-pointer tabular-nums disabled:opacity-50 ${
                       isSelected
-                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
+                        : 'text-ink-secondary hover:text-ink border border-transparent'
                     }`}
                   >
                     ปี {yr} (พ.ศ. {yr + 543})
@@ -534,105 +595,51 @@ export default function TaxPage() {
               })}
             </div>
 
-            {/* Sync from Transactions Button */}
-            <button
-              type="button"
-              onClick={handleExplicitSync}
-              disabled={syncing || loading}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
-              title="ดึงข้อมูลรายได้จากแท็บธุรกรรมมาคำนวณใหม่"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${syncing ? 'animate-spin text-emerald-500' : 'text-slate-500'}`}
-              />
-              <span>{syncing ? 'กำลังซิงค์...' : 'ซิงค์รายได้จากบัญชี'}</span>
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleExplicitSync}
+                disabled={syncing || loading}
+                title="ดึงข้อมูลรายได้จากแท็บธุรกรรมมาคำนวณใหม่"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'กำลังซิงค์...' : 'ซิงค์รายได้จากบัญชี'}</span>
+              </Button>
 
-            {/* Manual Override Toggle */}
-            <button
-              type="button"
-              onClick={handleToggleOverride}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-xs ${
-                isManualOverride
-                  ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-              title="เปิด/ปิดการแก้ไขตัวเลขเงินได้ด้วยตนเอง"
-            >
-              <Sliders className="w-4 h-4" />
-              <span>{isManualOverride ? 'โหมดแก้ไขอิสระ' : 'แก้ไขตัวเลขอิสระ'}</span>
-            </button>
-
-            {/* Auto-Save Status Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-medium border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
-              {autoSaveStatus === 'saving' && (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
-                  <span className="text-blue-600 dark:text-blue-400">กำลังบันทึกอัตโนมัติ...</span>
-                </>
-              )}
-              {autoSaveStatus === 'saved' && (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Auto-Save บันทึกแล้ว</span>
-                </>
-              )}
-              {autoSaveStatus === 'unsaved' && (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block" />
-                  <span className="text-amber-600 dark:text-amber-400">กำลังพิมพ์ (รอ Auto-Save)</span>
-                </>
-              )}
-              {autoSaveStatus === 'error' && (
-                <>
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                  <span className="text-rose-600 dark:text-rose-400">บันทึกไม่สำเร็จ</span>
-                </>
-              )}
-              {autoSaveStatus === 'idle' && (
-                <>
-                  <Save className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-slate-500 dark:text-slate-400">Auto-Save เปิดใช้งาน</span>
-                </>
-              )}
+              <Button
+                variant={isManualOverride ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={handleToggleOverride}
+                aria-pressed={isManualOverride}
+                title="เปิด/ปิดการแก้ไขตัวเลขเงินได้ด้วยตนเอง"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>{isManualOverride ? 'โหมดแก้ไขอิสระ (เปิด)' : 'แก้ไขตัวเลขอิสระ'}</span>
+              </Button>
             </div>
-
-            {/* Save to Google Sheet Button */}
-            <button
-              type="button"
-              onClick={handleSaveToSheet}
-              disabled={saving || loading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-              title="บันทึกข้อมูลภาษีและสิทธิลดหย่อนลง Google Sheets ทันที"
-            >
-              {saving ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>{saving ? 'กำลังบันทึก...' : 'บันทึกทันที'}</span>
-            </button>
           </div>
         </div>
 
         {/* Error Banner */}
         {error && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setLoading(true);
-                handleExplicitSync();
-              }}
-              className="px-3 py-1 bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 text-amber-900 dark:text-amber-100 rounded-xl font-medium transition-colors cursor-pointer"
-            >
-              ลองใหม่
-            </button>
-          </div>
+          <Alert
+            variant="warning"
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setLoading(true);
+                  handleExplicitSync();
+                }}
+              >
+                ลองใหม่
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
         )}
 
         {/* 1. Summary Cards */}
@@ -658,7 +665,7 @@ export default function TaxPage() {
           onChange={handleDeductionChange}
           result={result}
           withholdingTax={withholdingTax}
-          onWithholdingChange={setWithholdingTax}
+          onWithholdingChange={handleWithholdingChange}
           year={selectedYear}
         />
 
@@ -677,10 +684,7 @@ export default function TaxPage() {
         onToggleExclude={handleToggleExclude}
       />
 
-      <MobileBottomNav
-        onSyncComplete={handleExplicitSync}
-        onRefresh={handleExplicitSync}
-      />
+      <MobileBottomNav onSyncComplete={handleExplicitSync} onRefresh={handleExplicitSync} />
     </div>
   );
 }
