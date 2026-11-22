@@ -183,7 +183,7 @@ export default function MortgageCharts({ payments, loading = false }: MortgageCh
         <Layers className="w-8 h-8 mb-2.5 opacity-40" />
         <span className="font-semibold text-ink text-sm">ยังไม่มีข้อมูลการผ่อนชำระ</span>
         <span className="mt-1">
-          กด &ldquo;ซิงค์จากอีเมล ธอส.&rdquo; หรือบันทึกรายการด้วยตนเองเพื่อเริ่มต้น
+          กด &ldquo;Sync จากอีเมล ธอส.&rdquo; หรือบันทึกรายการด้วยตนเองเพื่อเริ่มต้น
         </span>
       </Card>
     );
@@ -195,13 +195,13 @@ export default function MortgageCharts({ payments, loading = false }: MortgageCh
         <div>
           <h3 className="text-sm sm:text-base font-semibold text-ink tracking-tight">
             {chartType === 'STACKED_BAR'
-              ? 'สัดส่วนการชำระรายเดือน'
-              : 'แนวโน้มการลดยอดหนี้คงเหลือ'}
+              ? 'สัดส่วนการชำระรายเดือน (Principal vs Interest vs Fee)'
+              : 'แนวโน้มการลดยอดหนี้คงเหลือ (Balance Reduction Curve)'}
           </h3>
           <p className="text-xs text-ink-muted mt-0.5">
             {chartType === 'STACKED_BAR'
-              ? 'แยกสัดส่วนเงินต้น ดอกเบี้ย และค่าประกัน/ค่าธรรมเนียมในแต่ละเดือน'
-              : 'แสดงการลดลงของภาระหนี้คงเหลือตามช่วงเวลา'}
+              ? 'แยกสัดส่วน เงินต้น (เขียว) ดอกเบี้ย (ส้ม) และประกัน/ค่าธรรมเนียม (ฟ้า)'
+              : 'แสดงความชันการลดลงของภาระหนี้ทั้งหมดตามกาลเวลา'}
           </p>
         </div>
 

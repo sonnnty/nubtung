@@ -65,7 +65,7 @@ const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
           </div>
         </div>
         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-border font-semibold tabular-nums">
-          <span className="text-ink-secondary">สุทธิ</span>
+          <span className="text-ink-secondary">คงเหลือ:</span>
           <span className={net >= 0 ? 'text-income' : 'text-expense'}>
             {net > 0 ? '+' : net < 0 ? '-' : ''}฿{formatMoney(Math.abs(net))}
           </span>
@@ -101,10 +101,10 @@ export default function TrendChart({ data, loading }: TrendChartProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div>
           <h2 className="text-sm sm:text-base font-semibold text-ink tracking-tight">
-            แนวโน้มรายรับ - รายจ่าย
+            แนวโน้มรายรับ - รายจ่าย (Income vs Expense Trend)
           </h2>
           <p className="text-xs text-ink-muted mt-0.5">
-            เปรียบเทียบกระแสเงินเข้าและออกตามช่วงเวลาที่เลือก
+            เปรียบเทียบกระแสเงินเข้า-ออกตามช่วงเวลาที่เลือก
           </p>
         </div>
 

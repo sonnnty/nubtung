@@ -52,7 +52,7 @@ export default function SummaryCards({
       icon: ArrowDownLeft,
       iconBg: 'bg-income-soft text-income border-income-border',
       amountClass: 'text-income',
-      caption: 'เงินเข้าสุทธิ',
+      caption: 'เงินเข้า',
     },
     {
       title: 'รายจ่ายในช่วงเวลา',
@@ -61,7 +61,7 @@ export default function SummaryCards({
       icon: ArrowUpRight,
       iconBg: 'bg-expense-soft text-expense border-expense-border',
       amountClass: 'text-expense',
-      caption: 'เงินออกสุทธิ',
+      caption: 'เงินออก',
     },
     {
       title: 'กระแสเงินสดสุทธิ',
@@ -70,7 +70,7 @@ export default function SummaryCards({
       icon: Wallet,
       iconBg: 'bg-accent-soft text-accent-text border-accent-border',
       amountClass: netBalance > 0 ? 'text-income' : netBalance < 0 ? 'text-expense' : 'text-ink',
-      caption: 'รายรับหักรายจ่าย',
+      caption: 'รายรับ - รายจ่าย',
     },
     {
       title: 'โอนระหว่างบัญชี',
@@ -174,7 +174,7 @@ export default function SummaryCards({
             className="whitespace-normal text-left leading-snug"
             title="ยอดในสมุดบัญชีตรงกับยอดในการ์ดแชต LINE (ส่วนต่าง ฿0.00)"
           >
-            ตรงกับธนาคาร (฿0.00)
+            ข้อมูลในระบบตรงกับธนาคาร (฿0.00)
           </Badge>
         ) : gap > 0 ? (
           <Badge
@@ -182,7 +182,7 @@ export default function SummaryCards({
             className="whitespace-normal text-left leading-snug tabular-nums"
             title={`ยอดในสมุดบัญชีมากกว่าแชต +฿${formatMoney(gap)} (อาจมีรายจ่ายตกหล่น)`}
           >
-            ระบบมากกว่าธนาคาร +฿{formatMoney(gap)}
+            ข้อมูลในระบบมากกว่าธนาคาร +฿{formatMoney(gap)}
           </Badge>
         ) : (
           <Badge
@@ -190,7 +190,7 @@ export default function SummaryCards({
             className="whitespace-normal text-left leading-snug tabular-nums"
             title={`ยอดในสมุดบัญชีน้อยกว่าแชต -฿${formatMoney(Math.abs(gap))} (อาจมีรายจ่ายซ้ำหรือรายรับตกหล่น)`}
           >
-            ระบบน้อยกว่าธนาคาร -฿{formatMoney(Math.abs(gap))}
+            ข้อมูลในระบบน้อยกว่าธนาคาร -฿{formatMoney(Math.abs(gap))}
           </Badge>
         )}
 
@@ -257,7 +257,7 @@ export default function SummaryCards({
             </div>
             <div>
               <p className="text-xs font-medium text-ink-muted">
-                ยอดเงินคงเหลือรวมในบัญชีจริงและเงินสด
+                เงินในบัญชีจริงและเงินสดทั้งหมด (Total Cash)
               </p>
               <p className="text-2xl sm:text-3xl font-bold text-ink tracking-tight tabular-nums mt-0.5">
                 {loading ? (

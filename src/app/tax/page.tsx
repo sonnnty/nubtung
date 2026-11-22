@@ -498,10 +498,10 @@ export default function TaxPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">
-                คำนวณและวางแผนภาษีเงินได้บุคคลธรรมดา
+                คำนวณและวางแผนภาษี (Personal Income Tax)
               </h1>
               <p className="text-xs sm:text-sm text-ink-muted mt-1">
-                แบบแสดงรายการ ภ.ง.ด. 90/91 เชื่อมโยงรายรับจากบัญชีและคำนวณสิทธิลดหย่อนตามกฎหมาย
+                คำนวณภาษีเงินได้บุคคลธรรมดา (ภ.ง.ด. 90/91) เชื่อมโยงบัญชีรายรับรายจ่าย พร้อมแนะนำสิทธิลดหย่อนเต็มพิกัด
               </p>
             </div>
 
@@ -530,10 +530,10 @@ export default function TaxPage() {
                 {autoSaveStatus === 'saved' && (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>บันทึกอัตโนมัติแล้ว</span>
+                    <span>Auto-Save บันทึกแล้ว</span>
                   </>
                 )}
-                {autoSaveStatus === 'unsaved' && <span>รอการบันทึกอัตโนมัติ</span>}
+                {autoSaveStatus === 'unsaved' && <span>กำลังพิมพ์ (รอ Auto-Save)</span>}
                 {autoSaveStatus === 'error' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5" />
@@ -543,7 +543,7 @@ export default function TaxPage() {
                 {autoSaveStatus === 'idle' && (
                   <>
                     <Save className="w-3.5 h-3.5" />
-                    <span>เปิดใช้งานบันทึกอัตโนมัติ</span>
+                    <span>Auto-Save เปิดใช้งาน</span>
                   </>
                 )}
               </Badge>
@@ -612,7 +612,7 @@ export default function TaxPage() {
                 title="เปิด/ปิดการแก้ไขตัวเลขเงินได้ด้วยตนเอง"
               >
                 <Sliders className="w-3.5 h-3.5" />
-                <span>{isManualOverride ? 'โหมดแก้ไขอิสระ (เปิด)' : 'แก้ไขตัวเลขอิสระ'}</span>
+                <span>{isManualOverride ? 'โหมดแก้ไขอิสระ' : 'แก้ไขตัวเลขอิสระ'}</span>
               </Button>
             </div>
           </div>

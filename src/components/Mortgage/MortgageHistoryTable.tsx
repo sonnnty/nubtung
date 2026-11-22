@@ -117,7 +117,7 @@ export default function MortgageHistoryTable({
           <div>
             <h3 className="text-base font-semibold text-ink tracking-tight flex items-center gap-2">
               <Receipt className="w-4 h-4 text-accent-text shrink-0" />
-              <span>ประวัติการผ่อนชำระ</span>
+              <span>ประวัติการผ่อนชำระ (Payment History)</span>
             </h3>
             <p className="text-xs text-ink-muted mt-0.5 tabular-nums">
               รวมรายการใบเสร็จ ธอส. ทั้งจากการซิงค์อัตโนมัติและการบันทึกเอง ({filteredPayments.length} รายการ)
@@ -222,7 +222,7 @@ export default function MortgageHistoryTable({
                       <span className="font-semibold text-warning">฿{formatMoney(p.interest)}</span>
                     </div>
                     <div>
-                      <span className="text-ink-muted block text-[11px]">ประกัน/ธรรมเนียม</span>
+                      <span className="text-ink-muted block text-[11px]">ค่าธรรมเนียม/ประกัน</span>
                       <span className="font-semibold text-transfer">฿{formatMoney(p.fee)}</span>
                     </div>
                   </div>
@@ -273,7 +273,7 @@ export default function MortgageHistoryTable({
                 <th className="px-4 py-3 text-right whitespace-nowrap text-income">เงินต้น</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap text-warning">ดอกเบี้ย</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap text-transfer">
-                  ประกัน/ธรรมเนียม
+                  ประกัน/ค่าธรรมเนียม
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap">ยอดหนี้คงเหลือ</th>
                 <th className="px-4 py-3 text-center whitespace-nowrap">ที่มา</th>

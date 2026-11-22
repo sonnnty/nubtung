@@ -151,7 +151,7 @@ export default function TaxDeductionsForm({
         <div>
           <h2 className="text-base font-semibold text-ink tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-accent-text shrink-0" />
-            <span>รายการลดหย่อนภาษี</span>
+            <span>รายการลดหย่อนภาษี (Tax Deductions)</span>
           </h2>
           <p className="text-xs text-ink-muted mt-1">
             ระบุสิทธิประโยชน์ทางภาษี ค่าลดหย่อนครอบครัว ประกัน กองทุน และเงินบริจาคตามสิทธิที่กฎหมายกำหนด
@@ -575,7 +575,7 @@ export default function TaxDeductionsForm({
               <div className="flex items-center gap-1.5 text-xs text-warning">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  รวมเบี้ยประกันชีวิตและประกันสุขภาพเกิน 100,000 บาท (คำนวณหักได้สูงสุด 100,000 บาท)
+                  รวมเบี้ยประกันชีวิต + ประกันสุขภาพเกิน 100,000 บาท (คำนวณหักได้สูงสุด 100,000 บาท)
                 </span>
               </div>
             )}
@@ -765,13 +765,13 @@ export default function TaxDeductionsForm({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="accent">วงเงินแยก</Badge>
+                  <Badge variant="accent">วงเงินพิเศษ</Badge>
                   <h4 className="text-xs sm:text-sm font-semibold text-ink">
                     กองทุนรวมไทยเพื่อความยั่งยืน (ThaiESG)
                   </h4>
                 </div>
                 <p className="text-xs text-ink-secondary mt-1">
-                  วงเงินลดหย่อนแยกต่างหาก ไม่นับรวมในเพดาน 500,000 บาทของกองทุนเกษียณ (สูงสุด 30% ของเงินได้ ไม่เกิน 300,000 บาท)
+                  วงเงินลดหย่อนแยกต่างหาก! ไม่นับรวมในเพดาน 500,000 บาทของกองทุนเกษียณ (สูงสุด 30% ของเงินได้ ไม่เกิน 300,000 บาท)
                 </p>
               </div>
 

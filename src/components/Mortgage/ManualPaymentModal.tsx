@@ -221,7 +221,7 @@ export default function ManualPaymentModal({
         {/* Payment Breakdown */}
         <div className="p-3.5 rounded-control bg-surface-subtle/50 border border-border space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-ink">การแบ่งยอดชำระ</span>
+            <span className="text-xs font-semibold text-ink">การแบ่งยอดชำระ (Breakdown)</span>
             {sumOfParts > 0 && (
               <button
                 type="button"
@@ -299,7 +299,7 @@ export default function ManualPaymentModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="mortgage-total-paid">
-              ยอดรวมที่ชำระจริง (฿) <span className="text-expense">*</span>
+              ยอดรวมที่ชำระจริง (Total Paid ฿) <span className="text-expense">*</span>
             </Label>
             <Input
               id="mortgage-total-paid"
@@ -329,7 +329,7 @@ export default function ManualPaymentModal({
               id="mortgage-remaining-balance"
               type="number"
               step="0.01"
-              placeholder="เว้นว่างเพื่อให้คำนวณอัตโนมัติ"
+              placeholder="เว้นว่างเพื่อให้ระบบคำนวณอัตโนมัติ"
               value={remainingBalance}
               onChange={(e) => setRemainingBalance(e.target.value)}
               className="tabular-nums"

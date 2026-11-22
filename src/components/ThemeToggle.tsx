@@ -31,8 +31,8 @@ export default function ThemeToggle() {
       variant="secondary"
       size="icon"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      title={isDark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
-      aria-label={isDark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
+      title={isDark ? 'เปลี่ยนเป็นโหมดสว่าง (Light Mode)' : 'เปลี่ยนเป็นโหมดมืด (Dark Mode)'}
+      aria-label="Toggle Dark Mode"
       className="text-ink-secondary hover:text-ink"
     >
       {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

@@ -218,10 +218,10 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">
-              ภาพรวมการเงิน
+              ภาพรวมการเงิน (Dashboard)
             </h1>
             <p className="text-xs sm:text-sm text-ink-muted mt-1">
-              สรุปยอดบัญชี กระแสเงินสด และการบันทึกสลิปพร้อม e-Statement อัตโนมัติ
+              เชื่อมต่อ Google Sheets สด พร้อมระบบ AI อ่านสลิปและ e-Statement อัตโนมัติ
             </p>
           </div>
 
@@ -275,7 +275,7 @@ export default function DashboardPage() {
                   </Button>
                 )}
                 <Button variant="secondary" size="sm" onClick={() => setPeriodMode('ALL')}>
-                  ดูทั้งหมด
+                  ดูทั้งหมด (ALL)
                 </Button>
               </div>
             }
@@ -327,7 +327,7 @@ export default function DashboardPage() {
                 รายจ่ายแยกตามบัญชี
               </h2>
               <p className="text-xs text-ink-muted mt-0.5 mb-4">
-                เปรียบเทียบยอดใช้จ่ายระหว่างบัญชีในช่วงเวลาที่เลือก
+                เปรียบเทียบยอดใช้จ่ายระหว่างบัญชี
               </p>
 
               {loading ? (
@@ -364,8 +364,8 @@ export default function DashboardPage() {
                                 style={{ width: `${Math.min(100, pct)}%` }}
                               />
                             </div>
-                            <span className="text-[11px] text-ink-muted tabular-nums w-9 text-right shrink-0">
-                              {pct}%
+                            <span className="text-[11px] text-ink-muted tabular-nums shrink-0">
+                              {pct}% ของรายจ่ายทั้งหมด
                             </span>
                           </div>
                         </div>
@@ -377,7 +377,7 @@ export default function DashboardPage() {
 
             <CardFooter>
               <span className="text-xs text-ink-muted">
-                ปรับตัวกรองช่วงเวลาด้านบนเพื่อดูยอดสะสมในแต่ละรอบ
+                ปรับตัวกรองช่วงเวลาด้านบนเพื่อดูยอดสะสมในแต่ละเดือน
               </span>
             </CardFooter>
           </Card>
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                               rel="noopener noreferrer"
                               className="inline-flex items-center justify-end gap-1 text-[11px] text-accent-text hover:underline mt-0.5"
                             >
-                              <span>ดูสลิป</span>
+                              <span>สลิป</span>
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
@@ -490,7 +490,7 @@ export default function DashboardPage() {
                 href="/transactions"
                 className="inline-flex items-center justify-center min-h-9 px-3.5 py-1.5 text-xs font-medium rounded-control bg-surface border border-border-strong text-ink hover:bg-surface-subtle transition-colors"
               >
-                ดูตารางและตัวกรองทั้งหมด
+                ดูตารางและฟิลเตอร์ทั้งหมด
               </Link>
             </CardFooter>
           </Card>

@@ -53,10 +53,10 @@ export default function LoginPage() {
             <Wallet className="w-5 h-5" />
           </div>
           <h1 className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">
-            เข้าสู่ระบบ นับตังค์
+            เข้าสู่ระบบ &ldquo;นับตังค์&rdquo;
           </h1>
-          <p className="text-xs text-ink-muted font-medium mt-1">
-            ระบบจัดการรายรับ-รายจ่ายและการเงินส่วนบุคคล
+          <p className="text-xs text-ink-muted font-medium tracking-wide uppercase mt-1">
+            Nubtang Finance Tracker
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
               />
             </div>
             <p className="text-xs text-ink-muted mt-1.5">
-              ค่าเริ่มต้น:{' '}
+              * ค่าเริ่มต้น:{' '}
               <span className="font-mono font-medium text-ink-secondary">nubtang1234</span>
             </p>
           </div>

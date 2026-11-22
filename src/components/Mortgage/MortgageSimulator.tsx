@@ -60,7 +60,7 @@ export default function MortgageSimulator({
         <div>
           <h3 className="text-base font-semibold text-ink tracking-tight flex items-center gap-2">
             <Calculator className="w-4 h-4 text-accent-text shrink-0" />
-            <span>เครื่องจำลองการโปะเงินกู้</span>
+            <span>เครื่องจำลองการโปะบ้าน (Extra Payment Simulator)</span>
           </h3>
           <p className="text-xs text-ink-muted mt-1">
             คำนวณผลลัพธ์แบบเรียลไทม์เมื่อจ่ายค่างวดเพิ่มขึ้นในแต่ละเดือนสำหรับ {accountName}
@@ -106,7 +106,7 @@ export default function MortgageSimulator({
         <div className="space-y-3 p-4 rounded-control bg-accent-soft/40 border border-accent-border">
           <div className="flex justify-between items-center gap-2">
             <label htmlFor="mortgage-extra-payment" className="text-xs font-semibold text-ink">
-              ยอดที่ต้องการโปะเพิ่มต่อเดือน
+              ยอดที่ต้องการโปะเพิ่มต่อเดือน (Extra Payment)
             </label>
             <span className="text-sm font-bold text-accent-text tabular-nums">
               +฿{extraPayment.toLocaleString('th-TH')}
@@ -200,13 +200,13 @@ export default function MortgageSimulator({
               ฿{interestSaved.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-ink-secondary">
-              ยอดดอกเบี้ยที่ประหยัดได้ตลอดอายุสัญญา
+              เงินในกระเป๋าที่ประหยัดได้ตลอดอายุสัญญา
             </p>
           </div>
         </div>
       ) : (
         <div className="p-4 rounded-control bg-surface-subtle/50 border border-border text-xs text-ink-muted text-center">
-          เลื่อนแถบด้านบนหรือเลือกปุ่มลัดเพื่อดูผลลัพธ์การประหยัดดอกเบี้ยและระยะเวลาผ่อนเมื่อโปะเงินเพิ่ม
+          เลื่อนแถบด้านบนหรือกดปุ่มลัดเพื่อดูผลลัพธ์การประหยัดดอกเบี้ยและเวลาเมื่อโปะเงินเพิ่ม
         </div>
       )}
 

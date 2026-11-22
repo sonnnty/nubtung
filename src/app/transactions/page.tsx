@@ -51,10 +51,10 @@ export default function TransactionsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold text-ink tracking-tight">
-              รายการธุรกรรมทั้งหมด
+              รายการธุรกรรมทั้งหมด (Transactions)
             </h1>
             <p className="text-xs sm:text-sm text-ink-muted mt-1">
-              ค้นหา กรอง และตรวจสอบสลิปของทุกรายการ (Google Sheet เป็นสำเนาสำหรับให้ผู้อื่นดู)
+              ค้นหา กรอง และดูสลิปของทุกรายการได้ที่นี่ (Google Sheet เป็นสำเนาสำหรับให้คนอื่นดู)
             </p>
           </div>
 

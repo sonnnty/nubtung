@@ -49,11 +49,11 @@ const CategoryTooltip = ({ active, payload, totalExpense }: CategoryTooltipProps
           <span className="font-semibold text-ink truncate">{data.name}</span>
         </div>
         <div className="flex justify-between items-center gap-4 tabular-nums">
-          <span className="text-ink-muted">ยอดใช้จ่าย</span>
+          <span className="text-ink-muted">ยอดใช้จ่าย:</span>
           <span className="font-semibold text-ink">฿{formatMoney(Number(data.value))}</span>
         </div>
         <div className="flex justify-between items-center gap-4 tabular-nums">
-          <span className="text-ink-muted">สัดส่วน</span>
+          <span className="text-ink-muted">สัดส่วน:</span>
           <span className="font-semibold text-accent-text">{percent}% ของทั้งหมด</span>
         </div>
       </div>

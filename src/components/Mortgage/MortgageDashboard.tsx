@@ -93,7 +93,7 @@ export default function MortgageDashboard() {
       if (data.addedCount > 0) {
         setToast({
           type: 'success',
-          message: `ซิงค์สำเร็จ พบใบเสร็จ ธอส. ใหม่ ${data.addedCount} รายการ`,
+          message: `ซิงค์สำเร็จ! พบใบเสร็จ ธอส. ใหม่ ${data.addedCount} รายการ`,
         });
       } else {
         setToast({
@@ -164,12 +164,12 @@ export default function MortgageDashboard() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              ติดตามการผ่อนบ้าน
+              ติดตามการผ่อนบ้าน (Mortgage Tracker)
             </h1>
             <Badge variant="accent">ธอส. 2.2M</Badge>
           </div>
           <p className="text-xs sm:text-sm text-ink-muted mt-1">
-            ธนาคารอาคารสงเคราะห์ · บัญชีบ้านหลัก (2.1M) และประกัน MRTA (100k)
+            ธนาคารอาคารสงเคราะห์ · บัญชีบ้านหลัก (2.1M) &amp; ประกัน MRTA (100k)
           </p>
         </div>
 
@@ -183,7 +183,7 @@ export default function MortgageDashboard() {
             title="เชื่อมต่อและดึงใบเสร็จรับเงิน PDF ล่าสุดจาก Gmail"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'กำลังซิงค์อีเมล...' : 'ซิงค์จากอีเมล ธอส.'}</span>
+            <span>{syncing ? 'กำลังซิงค์อีเมล...' : 'Sync จากอีเมล ธอส.'}</span>
           </Button>
 
           <Button

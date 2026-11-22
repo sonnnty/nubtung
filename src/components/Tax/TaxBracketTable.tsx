@@ -133,7 +133,7 @@ export default function TaxBracketTable({ result }: TaxBracketTableProps) {
         <div className="flex items-center gap-2">
           <Scale className="w-4 h-4 text-accent-text shrink-0" />
           <h3 className="text-xs sm:text-sm font-semibold text-ink">
-            การเปรียบเทียบวิธีคำนวณภาษี (วิธีที่ 1 กับ วิธีที่ 2)
+            การเปรียบเทียบวิธีคำนวณภาษี (วิธีที่ 1 vs วิธีที่ 2)
           </h3>
         </div>
 
@@ -218,7 +218,7 @@ export default function TaxBracketTable({ result }: TaxBracketTableProps) {
           </div>
           <div>
             <h3 className="text-xs sm:text-sm font-semibold text-ink">
-              คำแนะนำการวางแผนภาษี
+              คำแนะนำการวางแผนภาษี (Tax Optimization Tip)
             </h3>
             <span className="text-xs text-ink-muted">
               วิเคราะห์จากฐานภาษีส่วนเพิ่ม (Marginal Tax Bracket) ปัจจุบันของคุณ
@@ -228,15 +228,15 @@ export default function TaxBracketTable({ result }: TaxBracketTableProps) {
 
         {marginalRate === 0 ? (
           <div className="text-xs text-ink-secondary bg-surface p-3.5 rounded-control border border-border leading-relaxed">
-            <strong className="text-ink">ปัจจุบันเงินได้สุทธิของคุณอยู่ในเกณฑ์ยกเว้นภาษี (0%)</strong>{' '}
+            <strong className="text-ink">ปัจจุบันเงินได้สุทธิของคุณยังอยู่ในเกณฑ์ยกเว้นภาษี (0%)</strong>{' '}
             คุณยังไม่ต้องชำระภาษีเงินได้บุคคลธรรมดา จึงยังไม่มีความจำเป็นต้องซื้อกองทุนลดหย่อนภาษีเพิ่มเติมเพื่อประหยัดภาษีในปีนี้
           </div>
         ) : (
           <div className="space-y-2.5">
             <p className="text-xs text-ink-secondary leading-relaxed">
               ฐานภาษีส่วนเพิ่มของคุณอยู่ที่ <strong className="text-ink">{marginalRatePercent}%</strong>{' '}
-              ทุกการลดหย่อนภาษีที่เพิ่มขึ้น 1 บาท จะช่วยประหยัดภาษีได้{' '}
-              <strong className="text-ink">{marginalRate} บาท</strong>
+              นั่นหมายความว่า ทุกๆ การลดหย่อนภาษีที่เพิ่มขึ้น 1 บาท คุณจะประหยัดภาษีได้{' '}
+              <strong className="text-ink">{marginalRate} บาท</strong> ทันที!
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">

@@ -76,7 +76,7 @@ export default function SyncButton({ onSyncComplete }: SyncButtonProps) {
       if (stmAdded > 0) parts.push(`Statement ใหม่ ${stmAdded} รายการ`);
 
       if (parts.length > 0) {
-        setResultMessage(`ซิงค์สำเร็จ (${parts.join(', ')})`);
+        setResultMessage(`ซิงค์สำเร็จ! (${parts.join(', ')})`);
       } else {
         setResultMessage('ข้อมูลเป็นปัจจุบันแล้ว (ไม่มีสลิปหรือ Statement ใหม่)');
       }

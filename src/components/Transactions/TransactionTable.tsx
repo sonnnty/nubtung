@@ -417,7 +417,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         <div className="block md:hidden p-3 space-y-2.5 bg-surface-subtle/40">
           {loading ? (
             <div className="p-8 text-center text-xs text-ink-muted">
-              กำลังโหลดข้อมูลรายการ...
+              กำลังโหลดข้อมูลจาก Google Sheets...
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-xs text-ink-muted">
@@ -541,7 +541,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               {loading ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-ink-muted text-xs">
-                    กำลังโหลดข้อมูลรายการ...
+                    กำลังโหลดข้อมูลจาก Google Sheets...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
