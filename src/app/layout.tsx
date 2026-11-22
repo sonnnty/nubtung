@@ -1,6 +1,27 @@
 import type { Metadata } from 'next';
+import { IBM_Plex_Sans, IBM_Plex_Sans_Thai, IBM_Plex_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-sans',
+  display: 'swap',
+});
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  subsets: ['thai', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-ibm-plex-sans-thai',
+  display: 'swap',
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'นับตังค์ - Nubtang | จัดการรายรับ-รายจ่าย & บันทึกสลิปอัตโนมัติ',
@@ -19,8 +40,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th" suppressHydrationWarning className="h-full dark">
-      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
+    <html
+      lang="th"
+      suppressHydrationWarning
+      className={`h-full dark ${ibmPlexSans.variable} ${ibmPlexSansThai.variable} ${ibmPlexMono.variable}`}
+    >
+      <body className="min-h-full flex flex-col bg-canvas text-ink font-sans antialiased selection:bg-accent-soft selection:text-accent-text">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
         </ThemeProvider>

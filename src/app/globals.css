@@ -2,19 +2,253 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ==========================================================================
+   Nubtang Design Tokens — Light & Dark Themes
+   Restrained neutral surfaces, deep navy primary accent, muted semantic tones.
+   All body and muted foreground/background pairs verified >= 4.5:1 (WCAG AA).
+   ========================================================================== */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Surfaces & Borders */
+  --bg-canvas: #f5f6f8;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f1f3f6;
+  --bg-surface-hover: #e7ebf0;
+  --border-subtle: #e2e6ec;
+  --border-strong: #c9d1dc;
+
+  /* Ink (Typography) */
+  --text-primary: #111827;
+  --text-secondary: #475467;
+  --text-muted: #5c667a;
+
+  /* Primary Accent — Deep Banking Navy */
+  --accent: #1e3a5f;
+  --accent-hover: #162c49;
+  --accent-fg: #ffffff;
+  --accent-soft: #eef3f9;
+  --accent-border: #c5d5e8;
+  --accent-text: #1e3a5f;
+
+  /* Semantic — Income (Muted Forest Green) */
+  --income: #157347;
+  --income-soft: #edf7f1;
+  --income-border: #bde0cb;
+
+  /* Semantic — Expense (Muted Crimson) */
+  --expense: #b42318;
+  --expense-solid: #b42318;
+  --expense-solid-hover: #911c13;
+  --expense-soft: #fef2f1;
+  --expense-border: #f2c6c2;
+
+  /* Semantic — Transfer / Info (Muted Steel Blue) */
+  --transfer: #1d5687;
+  --transfer-soft: #eef5fb;
+  --transfer-border: #c4daee;
+
+  /* Semantic — Warning / Interest (Muted Ochre) */
+  --warning: #9a5b13;
+  --warning-soft: #fdf6ec;
+  --warning-border: #ecd3ae;
+
+  /* Chart Series (Corporate / Institutional Palette) */
+  --chart-1: #1e3a5f;
+  --chart-2: #157347;
+  --chart-3: #9a5b13;
+  --chart-4: #1d5687;
+  --chart-5: #6d3b5c;
+  --chart-6: #266c6f;
+  --chart-7: #b42318;
+  --chart-8: #5c667a;
+  --chart-grid: #e5e9f0;
+  --chart-axis: #5c667a;
+
+  /* Radii */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+  --radius-badge: 0.375rem;
+
+  /* Elevation (Flat, quiet shadows) */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 1px rgba(16, 24, 40, 0.02);
+  --shadow-popover: 0 10px 24px -6px rgba(16, 24, 40, 0.12), 0 4px 8px -4px rgba(16, 24, 40, 0.06);
+
+  /* Focus Ring */
+  --focus-ring: #1e3a5f;
+
+  /* Spacing Scale */
+  --space-section: 1.5rem;
+  --space-card: 1.25rem;
 }
 
 .dark {
-  --background: #090d16;
-  --foreground: #f1f5f9;
+  /* Surfaces & Borders */
+  --bg-canvas: #0e1218;
+  --bg-surface: #151b23;
+  --bg-surface-subtle: #1c2430;
+  --bg-surface-hover: #242e3d;
+  --border-subtle: #263040;
+  --border-strong: #38465b;
+
+  /* Ink (Typography) */
+  --text-primary: #f0f4f8;
+  --text-secondary: #b6c2d1;
+  --text-muted: #8a99ad;
+
+  /* Primary Accent — Refined Banking Blue-Slate */
+  --accent: #3b6ea5;
+  --accent-hover: #4a7eb6;
+  --accent-fg: #ffffff;
+  --accent-soft: #1a283a;
+  --accent-border: #2c4666;
+  --accent-text: #8ab8e6;
+
+  /* Semantic — Income (Muted Sage Green) */
+  --income: #4ebd84;
+  --income-soft: #142921;
+  --income-border: #234a39;
+
+  /* Semantic — Expense (Muted Coral-Crimson) */
+  --expense: #e87c76;
+  --expense-solid: #b8332a;
+  --expense-solid-hover: #9c2922;
+  --expense-soft: #2c1a1c;
+  --expense-border: #542c30;
+
+  /* Semantic — Transfer / Info (Muted Steel Blue) */
+  --transfer: #7ab3e0;
+  --transfer-soft: #172536;
+  --transfer-border: #284463;
+
+  /* Semantic — Warning / Interest (Muted Warm Gold) */
+  --warning: #e0a854;
+  --warning-soft: #2b2316;
+  --warning-border: #524022;
+
+  /* Chart Series */
+  --chart-1: #6ea1d4;
+  --chart-2: #4ebd84;
+  --chart-3: #d9a452;
+  --chart-4: #7ab3e0;
+  --chart-5: #c488ad;
+  --chart-6: #59b3b3;
+  --chart-7: #e87c76;
+  --chart-8: #8a99ad;
+  --chart-grid: #263040;
+  --chart-axis: #8a99ad;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-popover: 0 14px 32px rgba(0, 0, 0, 0.45);
+
+  /* Focus Ring */
+  --focus-ring: #8ab8e6;
+}
+
+@theme inline {
+  /* Colors */
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-surface-subtle: var(--bg-surface-subtle);
+  --color-surface-hover: var(--bg-surface-hover);
+  --color-border: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+
+  --color-income: var(--income);
+  --color-income-soft: var(--income-soft);
+  --color-income-border: var(--income-border);
+
+  --color-expense: var(--expense);
+  --color-expense-solid: var(--expense-solid);
+  --color-expense-solid-hover: var(--expense-solid-hover);
+  --color-expense-soft: var(--expense-soft);
+  --color-expense-border: var(--expense-border);
+
+  --color-transfer: var(--transfer);
+  --color-transfer-soft: var(--transfer-soft);
+  --color-transfer-border: var(--transfer-border);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
+
+  /* Radii */
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-badge: var(--radius-badge);
+
+  /* Shadows */
+  --shadow-card: var(--shadow-card);
+  --shadow-popover: var(--shadow-popover);
+
+  /* Fonts */
+  --font-sans: var(--font-ibm-plex-sans), var(--font-ibm-plex-sans-thai), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Base defaults */
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Visible, consistent keyboard focus ring */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Tabular numeric helper for financial figures */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle custom scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+  border-radius: 9999px;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
