@@ -3,7 +3,7 @@
 import React from 'react';
 import { RefreshCw, Sliders, Info, Layers, ShieldCheck, Search } from 'lucide-react';
 import type { IncomeBySection, TaxBreakdownTransaction } from '@/lib/tax/tax-types';
-import { Alert, Badge, Button, Card, Input } from '@/components/ui';
+import { Alert, Badge, Button, Card, Input, formatMoney } from '@/components/ui';
 
 interface TaxIncomeFormProps {
   income: IncomeBySection;
@@ -93,9 +93,6 @@ const SECTION_METAS: SectionMeta[] = [
     expenseRateText: 'หักเหมา 60%',
   },
 ];
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TaxIncomeForm({
   income,

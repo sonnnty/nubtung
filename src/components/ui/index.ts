@@ -17,3 +17,5 @@ export type { ModalProps, ModalSize } from './Modal';
 
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
+
+export { formatMoney, formatBaht } from './format';

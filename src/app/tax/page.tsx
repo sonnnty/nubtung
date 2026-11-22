@@ -573,7 +573,7 @@ export default function TaxPage() {
           {/* Year & Sync Toolbar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 p-3 bg-surface border border-border rounded-card shadow-card">
             <div className="flex items-center gap-1 p-1 bg-surface-subtle rounded-control border border-border overflow-x-auto no-scrollbar">
-              <Calendar className="w-4 h-4 text-ink-muted ml-2 mr-1 shrink-0" />
+              <Calendar className="w-4 h-4 text-ink-muted ml-2 mr-1 shrink-0 hidden sm:block" />
               {availableYears.map((yr) => {
                 const isSelected = yr === selectedYear;
                 return (
@@ -583,13 +583,15 @@ export default function TaxPage() {
                     disabled={saving}
                     onClick={() => handleYearChange(yr)}
                     aria-pressed={isSelected}
-                    className={`min-h-9 sm:min-h-8 px-3 py-1 rounded-badge text-xs font-medium transition-colors shrink-0 cursor-pointer tabular-nums disabled:opacity-50 ${
+                    title={`ปีภาษี ${yr} (พ.ศ. ${yr + 543})`}
+                    className={`min-h-9 sm:min-h-8 px-2.5 sm:px-3 py-1 rounded-badge text-xs font-medium transition-colors shrink-0 flex-1 sm:flex-none text-center cursor-pointer tabular-nums disabled:opacity-50 ${
                       isSelected
                         ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
                         : 'text-ink-secondary hover:text-ink border border-transparent'
                     }`}
                   >
-                    ปี {yr} (พ.ศ. {yr + 543})
+                    <span className="sm:hidden">{yr + 543}</span>
+                    <span className="hidden sm:inline">ปี {yr} (พ.ศ. {yr + 543})</span>
                   </button>
                 );
               })}

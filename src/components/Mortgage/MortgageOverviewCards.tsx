@@ -2,16 +2,13 @@
 
 import { Home, TrendingDown, Receipt, Coins } from 'lucide-react';
 import type { MortgageSummary } from '@/lib/mortgage/types';
-import { Badge, Card } from '@/components/ui';
+import { Badge, Card, formatMoney } from '@/components/ui';
 
 interface MortgageOverviewCardsProps {
   summary: MortgageSummary | null;
   selectedAccountId: string;
   loading?: boolean;
 }
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function MortgageOverviewCards({
   summary,

@@ -173,7 +173,7 @@ export default function PeriodSelector({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onModeChange(btn.id)}
-                className={`min-h-9 sm:min-h-8 px-3 py-1.5 rounded-badge text-xs font-medium whitespace-nowrap transition-colors duration-150 flex-1 sm:flex-none text-center cursor-pointer ${
+                className={`min-h-9 sm:min-h-8 px-2 sm:px-3 py-1.5 rounded-badge text-xs font-medium whitespace-nowrap transition-colors duration-150 flex-1 sm:flex-none text-center cursor-pointer ${
                   active
                     ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
                     : 'text-ink-secondary hover:text-ink border border-transparent'

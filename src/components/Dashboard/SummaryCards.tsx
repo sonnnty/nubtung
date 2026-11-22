@@ -14,7 +14,7 @@ import {
 import { DashboardSummary } from '@/types';
 import { describeBalanceAdjustment } from '@/lib/balance/balance-adjustment';
 import { readJson } from '@/lib/utils/http';
-import { Alert, Badge, Button, Card, ConfirmDialog } from '@/components/ui';
+import { Alert, Badge, Button, Card, ConfirmDialog, formatMoney } from '@/components/ui';
 
 interface SummaryCardsProps {
   summary: DashboardSummary | null;
@@ -27,9 +27,6 @@ interface SummaryCardsProps {
   /** Called after a balance adjustment row was added, to reload the dashboard data */
   onBalanceAdjusted?: () => void | Promise<void>;
 }
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function SummaryCards({
   summary,
@@ -282,7 +279,7 @@ export default function SummaryCards({
             return (
               <div
                 key={acc.key}
-                className="p-3.5 rounded-control bg-surface border border-border flex flex-col justify-between"
+                className="p-3.5 rounded-control bg-surface border border-border flex flex-col"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">

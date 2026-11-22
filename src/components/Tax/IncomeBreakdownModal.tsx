@@ -20,7 +20,7 @@ import {
   getTransactionStatusInfo,
 } from '@/lib/tax/tax-breakdown-helpers';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
-import { Badge, Button, Input, Modal } from '@/components/ui';
+import { Badge, Button, Input, Modal, formatMoney } from '@/components/ui';
 
 export interface IncomeBreakdownModalProps {
   isOpen: boolean;
@@ -31,9 +31,6 @@ export interface IncomeBreakdownModalProps {
   excludedIds: Set<string>;
   onToggleExclude: (txId: string) => void;
 }
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function IncomeBreakdownModal({
   isOpen,

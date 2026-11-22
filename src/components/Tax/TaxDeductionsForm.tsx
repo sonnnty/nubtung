@@ -17,7 +17,7 @@ import type { TaxDeductions, TaxCalculationResult } from '@/lib/tax/tax-types';
 import type { GhbReceipt } from '@/lib/ghb/sync';
 import { useHistoryModal } from '@/lib/hooks/useHistoryModal';
 import { readJson } from '@/lib/utils/http';
-import { Alert, Badge, Button, Card, Input, Modal } from '@/components/ui';
+import { Alert, Badge, Button, Card, Input, Modal, formatMoney } from '@/components/ui';
 
 interface TaxDeductionsFormProps {
   deductions: TaxDeductions;
@@ -29,9 +29,6 @@ interface TaxDeductionsFormProps {
 }
 
 type TabKey = 'family' | 'insurance' | 'retirement' | 'property';
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TaxDeductionsForm({
   deductions,

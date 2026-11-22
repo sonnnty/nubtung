@@ -10,15 +10,12 @@ import {
   Percent,
 } from 'lucide-react';
 import type { TaxCalculationResult } from '@/lib/tax/tax-types';
-import { Badge, Card } from '@/components/ui';
+import { Badge, Card, formatMoney } from '@/components/ui';
 
 interface TaxSummaryCardsProps {
   result: TaxCalculationResult;
   loading?: boolean;
 }
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TaxSummaryCards({ result, loading = false }: TaxSummaryCardsProps) {
   const isRefund = result.isRefund;

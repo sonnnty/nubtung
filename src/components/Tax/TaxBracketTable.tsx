@@ -3,7 +3,7 @@
 import React from 'react';
 import { Table, Lightbulb, Scale, CheckCircle2, ArrowRight } from 'lucide-react';
 import type { TaxCalculationResult } from '@/lib/tax/tax-types';
-import { Badge, Card } from '@/components/ui';
+import { Badge, Card, formatMoney } from '@/components/ui';
 
 interface TaxBracketTableProps {
   result: TaxCalculationResult;
@@ -19,9 +19,6 @@ const MAX_TAX_BY_TIER: Record<string, string> = {
   '2,000,001 - 5,000,000': '฿900,000',
   'มากกว่า 5,000,000': 'ไม่จำกัด',
 };
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TaxBracketTable({ result }: TaxBracketTableProps) {
   const currentTier = result.taxBrackets.find((b) => b.isCurrentTier) || result.taxBrackets[0];

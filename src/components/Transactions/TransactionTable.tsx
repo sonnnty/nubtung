@@ -29,6 +29,7 @@ import {
   Modal,
   Select,
   Textarea,
+  formatMoney,
 } from '@/components/ui';
 
 interface TransactionTableProps {
@@ -51,9 +52,6 @@ const CATEGORIES = [
   'เงินเดือน/รายรับ',
   'อื่นๆ',
 ];
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TransactionTable({ transactions, loading, onRefresh }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');

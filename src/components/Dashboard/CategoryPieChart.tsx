@@ -2,7 +2,7 @@
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { PieChart as PieIcon } from 'lucide-react';
-import { Card } from '@/components/ui';
+import { Card, formatMoney } from '@/components/ui';
 
 interface CategoryPieChartProps {
   categoryBreakdown: Record<string, number>;
@@ -32,9 +32,6 @@ interface CategoryTooltipProps {
   payload?: Array<{ payload: CategoryDatum; color?: string }>;
   totalExpense: number;
 }
-
-const formatMoney = (value: number) =>
-  value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CategoryTooltip = ({ active, payload, totalExpense }: CategoryTooltipProps) => {
   if (active && payload && payload.length) {

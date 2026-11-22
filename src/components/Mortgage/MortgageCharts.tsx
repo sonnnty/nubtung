@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { BarChart3, TrendingDown, Layers } from 'lucide-react';
 import type { MortgagePayment } from '@/lib/mortgage/types';
-import { Card } from '@/components/ui';
+import { Card, formatMoney } from '@/components/ui';
 
 interface MortgageChartsProps {
   payments: MortgagePayment[];
@@ -39,9 +39,6 @@ function formatShortThaiDate(dateStr: string): string {
     return dateStr;
   }
 }
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface MonthlyAggregatedData {
   key: string;

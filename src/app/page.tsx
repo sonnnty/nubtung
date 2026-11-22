@@ -8,7 +8,7 @@ import PeriodSelector, { PeriodMode, getSalaryCycleRange } from '@/components/Da
 import TrendChart, { ChartDataPoint } from '@/components/Dashboard/TrendChart';
 import CategoryPieChart from '@/components/Dashboard/CategoryPieChart';
 import ManualTransactionModal from '@/components/Transactions/ManualTransactionModal';
-import { Alert, Badge, Button, Card, CardFooter } from '@/components/ui';
+import { Alert, Badge, Button, Card, CardFooter, formatMoney } from '@/components/ui';
 import { Transaction, DashboardSummary } from '@/types';
 import Link from 'next/link';
 import {
@@ -24,9 +24,6 @@ const THAI_MONTHS = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
 ];
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function DashboardPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);

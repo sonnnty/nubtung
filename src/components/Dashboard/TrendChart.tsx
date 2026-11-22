@@ -14,7 +14,7 @@ import {
   Legend,
 } from 'recharts';
 import { BarChart3, TrendingUp } from 'lucide-react';
-import { Card } from '@/components/ui';
+import { Card, formatMoney } from '@/components/ui';
 
 export interface ChartDataPoint {
   label: string;
@@ -38,9 +38,6 @@ interface TrendTooltipProps {
   payload?: TrendTooltipPayloadItem[];
   label?: string;
 }
-
-const formatMoney = (value: number) =>
-  value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
   if (active && payload && payload.length) {

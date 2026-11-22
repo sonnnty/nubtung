@@ -23,6 +23,7 @@ import {
   ConfirmDialog,
   Input,
   Select,
+  formatMoney,
 } from '@/components/ui';
 
 interface MortgageHistoryTableProps {
@@ -35,9 +36,6 @@ const ACCOUNT_NAMES: Record<string, string> = {
   '011690010474': 'สินเชื่อบ้านหลัก (011690010474)',
   '011690010482': 'สินเชื่อ MRTA (011690010482)',
 };
-
-const formatMoney = (amount: number) =>
-  amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function MortgageHistoryTable({
   payments,
