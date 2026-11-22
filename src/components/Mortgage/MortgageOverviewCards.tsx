@@ -127,10 +127,10 @@ export default function MortgageOverviewCards({
 
             <div className="flex justify-between text-[11px] text-ink-muted tabular-nums pt-0.5">
               <span>
-                เงินต้นแล้ว ฿{principalPaid.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                เงินต้นชำระแล้ว ฿{principalPaid.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
               </span>
               <span>
-                รวมจ่าย ฿{totalPaidOverall.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                รวมจ่ายแล้ว ฿{totalPaidOverall.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function MortgageOverviewCards({
                 </div>
                 <div className="text-right shrink-0 tabular-nums">
                   <span className="font-semibold text-ink block">
-                    ฿{acc.remainingBalance.toLocaleString('th-TH', { maximumFractionDigits: 0 })}
+                    ฿{acc.remainingBalance.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
                   </span>
                   <span className="text-[11px] text-income font-medium">
                     ชำระแล้ว {acc.progressPercent.toFixed(1)}%

@@ -392,7 +392,7 @@ export default function MortgageHistoryTable({
                 variant="secondary"
                 size="icon"
                 disabled={safeCurrentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage(Math.max(1, safeCurrentPage - 1))}
                 aria-label="หน้าก่อนหน้า"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -404,7 +404,7 @@ export default function MortgageHistoryTable({
                 variant="secondary"
                 size="icon"
                 disabled={safeCurrentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage(Math.min(totalPages, safeCurrentPage + 1))}
                 aria-label="หน้าถัดไป"
               >
                 <ChevronRight className="w-4 h-4" />

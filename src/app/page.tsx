@@ -483,7 +483,9 @@ export default function DashboardPage() {
             </div>
 
             <CardFooter>
-              <span className="text-xs text-ink-muted">แสดง 15 รายการล่าสุดในรอบที่เลือก</span>
+              <span className="text-xs text-ink-muted tabular-nums">
+                แสดง {Math.min(15, filteredTransactions.length)} รายการล่าสุดในรอบที่เลือก
+              </span>
               <Link
                 href="/transactions"
                 className="inline-flex items-center justify-center min-h-9 px-3.5 py-1.5 text-xs font-medium rounded-control bg-surface border border-border-strong text-ink hover:bg-surface-subtle transition-colors"

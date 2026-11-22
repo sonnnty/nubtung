@@ -457,9 +457,13 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
                   {/* Footer metadata & actions */}
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                      <Badge variant="neutral">{tx.category}</Badge>
-                      <Badge variant="neutral">{tx.account}</Badge>
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                      <Badge variant="neutral" className="max-w-full min-w-0">
+                        <span className="truncate">{tx.category}</span>
+                      </Badge>
+                      <Badge variant="neutral" className="max-w-full min-w-0">
+                        <span className="truncate">{tx.account}</span>
+                      </Badge>
                       {isBalanceAdjustment(tx) && (
                         <Badge
                           variant="accent"
@@ -679,7 +683,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={() => setCurrentPage(Math.max(safeCurrentPage - 1, 1))}
                 disabled={safeCurrentPage === 1}
                 title="หน้าก่อนหน้า"
                 aria-label="หน้าก่อนหน้า"
@@ -694,7 +698,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                onClick={() => setCurrentPage(Math.min(safeCurrentPage + 1, totalPages))}
                 disabled={safeCurrentPage === totalPages}
                 title="หน้าถัดไป"
                 aria-label="หน้าถัดไป"
