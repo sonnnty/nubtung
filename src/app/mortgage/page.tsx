@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 
 export default function MortgagePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0b0f19] transition-colors">
+    <div className="min-h-screen flex flex-col bg-canvas transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 pb-28 md:pb-10">
         <MortgageDashboard />
       </main>
 

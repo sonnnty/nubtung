@@ -1,22 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <defs>
-    <linearGradient id="nubtangGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10B981" />
-      <stop offset="100%" stop-color="#047857" />
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#047857" flood-opacity="0.3"/>
-    </filter>
-  </defs>
-
-  <!-- Background rounded square -->
-  <rect width="64" height="64" rx="16" fill="url(#nubtangGrad)" filter="url(#shadow)" />
-
-  <!-- Wallet Body -->
-  <path d="M16 22C16 19.7909 17.7909 18 20 18H44C46.2091 18 48 19.7909 48 22V24H20C17.7909 24 16 25.7909 16 28V22Z" fill="white" fill-opacity="0.85" />
-  <path d="M16 26H45C46.6569 26 48 27.3431 48 29V42C48 44.2091 46.2091 46 44 46H20C17.7909 46 16 44.2091 16 42V26Z" fill="white" />
-  
-  <!-- Wallet Clasp / Pocket -->
-  <path d="M38 32H48V38H38C36.3431 38 35 36.6569 35 35C35 33.3431 36.3431 32 38 32Z" fill="#10B981" />
-  <circle cx="40" cy="35" r="1.75" fill="white" />
+  <rect width="64" height="64" rx="12" fill="#1e3a5f" />
+  <path d="M16 22C16 19.7909 17.7909 18 20 18H44C46.2091 18 48 19.7909 48 22V24H20C17.7909 24 16 25.7909 16 28V22Z" fill="#ffffff" fill-opacity="0.85" />
+  <path d="M16 26H45C46.6569 26 48 27.3431 48 29V42C48 44.2091 46.2091 46 44 46H20C17.7909 46 16 44.2091 16 42V26Z" fill="#ffffff" />
+  <path d="M38 32H48V38H38C36.3431 38 35 36.6569 35 35C35 33.3431 36.3431 32 38 32Z" fill="#1e3a5f" />
+  <circle cx="40" cy="35" r="1.75" fill="#ffffff" />
 </svg>

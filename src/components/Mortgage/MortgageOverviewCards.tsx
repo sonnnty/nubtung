@@ -2,6 +2,7 @@
 
 import { Home, TrendingDown, Receipt, Coins } from 'lucide-react';
 import type { MortgageSummary } from '@/lib/mortgage/types';
+import { Badge, Card, formatMoney } from '@/components/ui';
 
 interface MortgageOverviewCardsProps {
   summary: MortgageSummary | null;
@@ -17,10 +18,10 @@ export default function MortgageOverviewCards({
   if (loading || !summary) {
     return (
       <div className="space-y-4">
-        <div className="h-36 rounded-3xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />
+        <div className="h-40 rounded-card bg-surface border border-border animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 rounded-3xl bg-slate-100 dark:bg-slate-800/40 animate-pulse" />
+            <div key={i} className="h-28 rounded-card bg-surface border border-border animate-pulse" />
           ))}
         </div>
       </div>
@@ -44,13 +45,11 @@ export default function MortgageOverviewCards({
   const cards = [
     {
       title: 'ยอดหนี้คงเหลือ',
-      subtitle: `จากวงเงินกู้ ฿${loanAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+      subtitle: `จากวงเงินกู้ ฿${formatMoney(loanAmount)}`,
       amount: remainingBalance,
       icon: Home,
-      color: 'rose',
-      bg: 'bg-rose-50 dark:bg-rose-950/40',
-      text: 'text-rose-600 dark:text-rose-400',
-      border: 'border-rose-200/60 dark:border-rose-800/40',
+      badgeVariant: 'expense' as const,
+      iconWrap: 'bg-expense-soft text-expense border-expense-border',
       badge: 'คงค้างชำระ',
     },
     {
@@ -58,10 +57,8 @@ export default function MortgageOverviewCards({
       subtitle: `ตัดเงินต้นไปแล้ว ${progressPercent.toFixed(1)}%`,
       amount: principalPaid,
       icon: TrendingDown,
-      color: 'emerald',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-      text: 'text-emerald-600 dark:text-emerald-400',
-      border: 'border-emerald-200/60 dark:border-emerald-800/40',
+      badgeVariant: 'income' as const,
+      iconWrap: 'bg-income-soft text-income border-income-border',
       badge: `${progressPercent.toFixed(1)}% สำเร็จ`,
     },
     {
@@ -69,10 +66,8 @@ export default function MortgageOverviewCards({
       subtitle: 'ดอกเบี้ยจ่ายทั้งหมดสะสม',
       amount: interestPaid,
       icon: Coins,
-      color: 'amber',
-      bg: 'bg-amber-50 dark:bg-amber-950/40',
-      text: 'text-amber-600 dark:text-amber-400',
-      border: 'border-amber-200/60 dark:border-amber-800/40',
+      badgeVariant: 'warning' as const,
+      iconWrap: 'bg-warning-soft text-warning border-warning-border',
       badge: 'ดอกเบี้ยจ่าย',
     },
     {
@@ -80,40 +75,34 @@ export default function MortgageOverviewCards({
       subtitle: 'ค่าเบี้ยประกันและธรรมเนียม',
       amount: feePaid,
       icon: Receipt,
-      color: 'sky',
-      bg: 'bg-sky-50 dark:bg-sky-950/40',
-      text: 'text-sky-600 dark:text-sky-400',
-      border: 'border-sky-200/60 dark:border-sky-800/40',
+      badgeVariant: 'transfer' as const,
+      iconWrap: 'bg-transfer-soft text-transfer border-transfer-border',
       badge: 'ค่าใช้จ่ายแฝง',
     },
   ];
 
   return (
     <div className="space-y-4">
-      {/* Featured Hero Card with Progress */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-gradient-to-br from-emerald-700 via-teal-700 to-slate-900 text-white shadow-xl shadow-emerald-900/10 border border-emerald-600/30 relative overflow-hidden">
-        {/* Subtle background decoration */}
-        <div className="absolute -right-8 -bottom-8 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Loan Portfolio Summary Card */}
+      <Card className="p-5 sm:p-6 border-l-4 border-l-accent space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/15 backdrop-blur-md border border-white/20">
-                {isAll ? '🌟 ภาพรวมสัญญาเงินกู้ทั้งหมด' : currentAccount?.name}
-              </span>
-              <span className="text-xs text-emerald-200 font-medium">
+              <Badge variant="accent">
+                {isAll ? 'ภาพรวมสัญญาเงินกู้ทั้งหมด' : currentAccount?.name}
+              </Badge>
+              <span className="text-xs text-ink-muted font-mono">
                 {isAll ? '2 บัญชีคู่สัญญา' : `เลขที่ ${currentAccount?.accountNumber}`}
               </span>
             </div>
+
             <div>
-              <p className="text-xs text-emerald-100/90 font-medium uppercase tracking-wider">
-                ยอดหนี้คงเหลือรวมสุทธิ
-              </p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-                  ฿{remainingBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+              <p className="text-xs text-ink-muted font-medium">ยอดหนี้คงเหลือรวมสุทธิ</p>
+              <div className="flex flex-wrap items-baseline gap-2 mt-1 tabular-nums">
+                <span className="text-2xl sm:text-4xl font-bold text-ink tracking-tight">
+                  ฿{formatMoney(remainingBalance)}
                 </span>
-                <span className="text-xs sm:text-sm text-emerald-200">
+                <span className="text-xs sm:text-sm text-ink-muted">
                   / ฿{loanAmount.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
                 </span>
               </div>
@@ -121,81 +110,83 @@ export default function MortgageOverviewCards({
           </div>
 
           {/* Progress Box */}
-          <div className="min-w-[240px] max-w-sm w-full bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 space-y-2.5">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-emerald-100">ความคืบหน้าการปลดหนี้</span>
-              <span className="text-white font-bold">{progressPercent.toFixed(2)}%</span>
+          <div className="min-w-[240px] max-w-sm w-full bg-surface-subtle/60 p-4 rounded-control border border-border space-y-2.5">
+            <div className="flex justify-between text-xs font-medium">
+              <span className="text-ink-secondary">ความคืบหน้าการปลดหนี้</span>
+              <span className="text-accent-text font-semibold tabular-nums">
+                {progressPercent.toFixed(2)}%
+              </span>
             </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 border border-white/10">
+
+            <div className="w-full bg-surface border border-border rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500 shadow-sm"
+                className="bg-accent h-full rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
               />
             </div>
 
-            <div className="flex justify-between text-[11px] text-emerald-200 pt-0.5">
-              <span>เงินต้นชำระแล้ว ฿{principalPaid.toLocaleString('th-TH', { minimumFractionDigits: 0 })}</span>
-              <span>รวมจ่ายแล้ว ฿{totalPaidOverall.toLocaleString('th-TH', { minimumFractionDigits: 0 })}</span>
+            <div className="flex justify-between text-[11px] text-ink-muted tabular-nums pt-0.5">
+              <span>
+                เงินต้นชำระแล้ว ฿{principalPaid.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
+              </span>
+              <span>
+                รวมจ่ายแล้ว ฿{totalPaidOverall.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Account breakdown badges when in ALL view */}
+        {/* Account Breakdown Rows when in ALL view */}
         {isAll && summary.accounts.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-white/15 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             {summary.accounts.map((acc) => (
               <div
                 key={acc.id}
-                className="flex items-center justify-between bg-white/5 hover:bg-white/10 transition-colors px-3.5 py-2 rounded-xl border border-white/10"
+                className="flex items-center justify-between gap-2 bg-surface-subtle/40 px-3.5 py-2.5 rounded-control border border-border"
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="font-medium text-emerald-100 truncate max-w-[170px] sm:max-w-[210px]">
-                    {acc.name}
-                  </span>
+                <div className="min-w-0">
+                  <span className="font-medium text-ink block truncate">{acc.name}</span>
+                  <span className="text-[11px] font-mono text-ink-muted">{acc.accountNumber}</span>
                 </div>
-                <div className="text-right font-semibold">
-                  <span>฿{acc.remainingBalance.toLocaleString('th-TH', { minimumFractionDigits: 0 })}</span>
-                  <span className="text-[10px] text-emerald-300 ml-1.5">({acc.progressPercent.toFixed(1)}%)</span>
+                <div className="text-right shrink-0 tabular-nums">
+                  <span className="font-semibold text-ink block">
+                    ฿{acc.remainingBalance.toLocaleString('th-TH', { minimumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-[11px] text-income font-medium">
+                    ชำระแล้ว {acc.progressPercent.toFixed(1)}%
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* 4 Detail KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {cards.map((card, idx) => {
+        {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
-              key={idx}
-              className={`p-4 sm:p-5 rounded-3xl border bg-white dark:bg-slate-900 ${card.border} shadow-xs transition-all hover:shadow-md relative overflow-hidden`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className={`w-10 h-10 rounded-2xl ${card.bg} flex items-center justify-center shrink-0`}>
-                  <Icon className={`w-5 h-5 ${card.text}`} />
+            <Card key={card.title} className="p-4 sm:p-5 flex flex-col justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <div
+                  className={`w-8 h-8 rounded-control border flex items-center justify-center shrink-0 ${card.iconWrap}`}
+                >
+                  <Icon className="w-4 h-4" />
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${card.bg} ${card.text}`}>
+                <Badge variant={card.badgeVariant} className="tabular-nums">
                   {card.badge}
-                </span>
+                </Badge>
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {card.title}
+                <p className="text-xs font-medium text-ink-secondary">{card.title}</p>
+                <p className="text-xl sm:text-2xl font-bold text-ink mt-1 tracking-tight tabular-nums">
+                  ฿{formatMoney(card.amount)}
                 </p>
-                <p className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 tracking-tight">
-                  ฿{card.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">
-                  {card.subtitle}
-                </p>
+                <p className="text-[11px] text-ink-muted mt-1 truncate">{card.subtitle}</p>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

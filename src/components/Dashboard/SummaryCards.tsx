@@ -1,10 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Repeat, Wallet, Building2 } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ArrowLeftRight,
+  Wallet,
+  Building2,
+  Landmark,
+  Smartphone,
+  Banknote,
+} from 'lucide-react';
 import { DashboardSummary } from '@/types';
 import { describeBalanceAdjustment } from '@/lib/balance/balance-adjustment';
 import { readJson } from '@/lib/utils/http';
+import { Alert, Badge, Button, Card, ConfirmDialog, formatMoney } from '@/components/ui';
 
 interface SummaryCardsProps {
   summary: DashboardSummary | null;
@@ -29,47 +39,47 @@ export default function SummaryCards({
   onBalanceAdjusted,
 }: SummaryCardsProps) {
   const [adjustingAccount, setAdjustingAccount] = useState<string | null>(null);
+  const [pendingAdjust, setPendingAdjust] = useState<{ account: string; gap: number } | null>(null);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
 
-  const cards = [
+  const netBalance = summary?.netBalance || 0;
+
+  const metricCards = [
     {
       title: 'รายรับในช่วงเวลา',
       amount: summary?.totalIncome || 0,
-      icon: ArrowDownRight,
-      color: 'emerald',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-      text: 'text-emerald-600 dark:text-emerald-400',
-      border: 'border-emerald-200/60 dark:border-emerald-800/40',
-      badge: 'เงินเข้า',
+      prefix: '',
+      icon: ArrowDownLeft,
+      iconBg: 'bg-income-soft text-income border-income-border',
+      amountClass: 'text-income',
+      caption: 'เงินเข้า',
     },
     {
       title: 'รายจ่ายในช่วงเวลา',
       amount: summary?.totalExpense || 0,
+      prefix: '',
       icon: ArrowUpRight,
-      color: 'rose',
-      bg: 'bg-rose-50 dark:bg-rose-950/40',
-      text: 'text-rose-600 dark:text-rose-400',
-      border: 'border-rose-200/60 dark:border-rose-800/40',
-      badge: 'เงินออก',
+      iconBg: 'bg-expense-soft text-expense border-expense-border',
+      amountClass: 'text-expense',
+      caption: 'เงินออก',
     },
     {
       title: 'กระแสเงินสดสุทธิ',
-      amount: summary?.netBalance || 0,
+      amount: Math.abs(netBalance),
+      prefix: netBalance > 0 ? '+' : netBalance < 0 ? '-' : '',
       icon: Wallet,
-      color: 'sky',
-      bg: 'bg-sky-50 dark:bg-sky-950/40',
-      text: 'text-sky-600 dark:text-sky-400',
-      border: 'border-sky-200/60 dark:border-sky-800/40',
-      badge: 'รายรับ - รายจ่าย',
+      iconBg: 'bg-accent-soft text-accent-text border-accent-border',
+      amountClass: netBalance > 0 ? 'text-income' : netBalance < 0 ? 'text-expense' : 'text-ink',
+      caption: 'รายรับ - รายจ่าย',
     },
     {
       title: 'โอนระหว่างบัญชี',
       amount: summary?.transferTotal || 0,
-      icon: Repeat,
-      color: 'amber',
-      bg: 'bg-amber-50 dark:bg-amber-950/40',
-      text: 'text-amber-600 dark:text-amber-400',
-      border: 'border-amber-200/60 dark:border-amber-800/40',
-      badge: 'ไม่นับเป็นรายจ่าย',
+      prefix: '',
+      icon: ArrowLeftRight,
+      iconBg: 'bg-transfer-soft text-transfer border-transfer-border',
+      amountClass: 'text-transfer',
+      caption: 'ไม่นับเป็นรายจ่าย',
     },
   ];
 
@@ -94,16 +104,13 @@ export default function SummaryCards({
   const balanceGaps = overallSummary?.accountBalanceGaps || summary?.accountBalanceGaps || {};
   const cardTimes = overallSummary?.accountCardTimes || summary?.accountCardTimes || {};
 
-  const formatMoney = (amount: number) =>
-    amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
   // Adds one row that brings the ledger to the bank's balance. The server works the amount out again
   // from the database; this only names the account.
-  const handleAdjust = async (account: string, gap: number) => {
-    if (!confirm(`${describeBalanceAdjustment(account, gap)}\n\nรายการนี้ไม่นับเป็นรายรับ/รายจ่าย และลบทิ้งได้ในหน้ารายการ`)) {
-      return;
-    }
+  const handleConfirmAdjust = async () => {
+    if (!pendingAdjust) return;
+    const { account } = pendingAdjust;
     setAdjustingAccount(account);
+    setAdjustError(null);
     try {
       const res = await fetch('/api/transactions/balance-adjustment', {
         method: 'POST',
@@ -112,25 +119,14 @@ export default function SummaryCards({
       });
       const data = await readJson(res);
       if (!res.ok) throw new Error(data.error || 'ปรับยอดไม่สำเร็จ');
+      setPendingAdjust(null);
       await onBalanceAdjusted?.();
     } catch (err: unknown) {
-      alert(`ปรับยอดไม่สำเร็จ: ${err instanceof Error ? err.message : err}`);
+      setAdjustError(`ปรับยอดไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setAdjustingAccount(null);
     }
   };
-
-  const renderAdjustButton = (account: string, gap: number) => (
-    <button
-      type="button"
-      onClick={() => handleAdjust(account, gap)}
-      disabled={adjustingAccount !== null}
-      className="mt-0.5 px-1.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 border border-white/30 text-white text-[8px] sm:text-[9px] font-semibold leading-tight transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-      title={describeBalanceAdjustment(account, gap)}
-    >
-      {adjustingAccount === account ? 'กำลังปรับยอด...' : 'ปรับยอดให้ตรงธนาคาร'}
-    </button>
-  );
 
   const renderCardStatus = (account: string) => {
     const cardTime = cardTimes[account];
@@ -140,21 +136,21 @@ export default function SummaryCards({
       const periodEnd = balanceAsOf[account];
       const [, m, d] = periodEnd ? periodEnd.split('-') : [];
       return (
-        <div className="mt-0.5 space-y-0.5">
+        <div className="mt-2 pt-2 border-t border-border space-y-1">
           {periodEnd && (
-            <span
-              className="text-[8px] sm:text-[9px] text-emerald-100/80 font-medium block leading-tight"
+            <p
+              className="text-[11px] text-ink-muted leading-snug"
               title={`ยอดตาม statement ${d}/${m} + รายการหลังจากนั้น`}
             >
               ตาม statement {d}/{m} + รายการใหม่
-            </span>
+            </p>
           )}
-          <span
-            className="text-[8px] sm:text-[9px] text-emerald-100/75 font-medium block leading-tight"
+          <p
+            className="text-[11px] text-ink-muted leading-snug"
             title="ยังไม่มีการ์ด KBank Live จากแชต LINE"
           >
             ส่วนต่าง —
-          </span>
+          </p>
         </div>
       );
     }
@@ -164,118 +160,206 @@ export default function SummaryCards({
     const whenLabel = d && m ? `${d}/${m} ${timePart}` : cardTime;
 
     return (
-      <div className="mt-0.5 space-y-0.5">
-        <span
-          className="text-[8px] sm:text-[9px] text-emerald-100/85 font-medium block leading-tight"
+      <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+        <p
+          className="text-[11px] text-ink-muted tabular-nums leading-snug"
           title={`ยอดจากการ์ด KBank Live ในแชต LINE เมื่อ ${whenLabel} น.`}
         >
           จากแชต {whenLabel} น.
-        </span>
+        </p>
+
         {gap === 0 ? (
-          <span
-            className="text-[8px] sm:text-[9px] text-emerald-100/90 font-medium block leading-tight"
+          <Badge
+            variant="income"
+            className="whitespace-normal text-left leading-snug"
             title="ยอดในสมุดบัญชีตรงกับยอดในการ์ดแชต LINE (ส่วนต่าง ฿0.00)"
           >
             ข้อมูลในระบบตรงกับธนาคาร (฿0.00)
-          </span>
+          </Badge>
         ) : gap > 0 ? (
-          <span
-            className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
+          <Badge
+            variant="warning"
+            className="whitespace-normal text-left leading-snug tabular-nums"
             title={`ยอดในสมุดบัญชีมากกว่าแชต +฿${formatMoney(gap)} (อาจมีรายจ่ายตกหล่น)`}
           >
             ข้อมูลในระบบมากกว่าธนาคาร +฿{formatMoney(gap)}
-          </span>
+          </Badge>
         ) : (
-          <span
-            className="inline-block px-1.5 py-0.5 rounded-md bg-amber-300/25 dark:bg-amber-400/20 border border-amber-200/40 text-amber-50 text-[8px] sm:text-[9px] font-semibold leading-tight"
+          <Badge
+            variant="warning"
+            className="whitespace-normal text-left leading-snug tabular-nums"
             title={`ยอดในสมุดบัญชีน้อยกว่าแชต -฿${formatMoney(Math.abs(gap))} (อาจมีรายจ่ายซ้ำหรือรายรับตกหล่น)`}
           >
             ข้อมูลในระบบน้อยกว่าธนาคาร -฿{formatMoney(Math.abs(gap))}
-          </span>
+          </Badge>
         )}
-        {gap !== 0 && <div>{renderAdjustButton(account, gap)}</div>}
+
+        {gap !== 0 && (
+          <div className="pt-0.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setAdjustError(null);
+                setPendingAdjust({ account, gap });
+              }}
+              disabled={adjustingAccount !== null}
+              title={describeBalanceAdjustment(account, gap)}
+              className="w-full text-[11px]"
+            >
+              {adjustingAccount === account ? 'กำลังปรับยอด...' : 'ปรับยอดให้ตรงธนาคาร'}
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
 
-  const kplusBal = resolvedAccountBalances['K PLUS'] ?? 43253.07;
-  const makeBal = resolvedAccountBalances['Make by KBank'] ?? 3672.29;
-  const paotangBal = resolvedAccountBalances['เป๋าตัง'] ?? 195.44;
-  const cashBal = resolvedAccountBalances['เงินสด'] ?? 0;
+  const accounts = [
+    {
+      key: 'K PLUS',
+      label: 'K PLUS',
+      balance: resolvedAccountBalances['K PLUS'] ?? 43253.07,
+      icon: Landmark,
+      hasCardStatus: true,
+    },
+    {
+      key: 'Make by KBank',
+      label: 'Make by KBank',
+      balance: resolvedAccountBalances['Make by KBank'] ?? 3672.29,
+      icon: Wallet,
+      hasCardStatus: true,
+    },
+    {
+      key: 'เป๋าตัง',
+      label: 'เป๋าตัง',
+      balance: resolvedAccountBalances['เป๋าตัง'] ?? 195.44,
+      icon: Smartphone,
+      hasCardStatus: false,
+    },
+    {
+      key: 'เงินสด',
+      label: 'เงินสด',
+      balance: resolvedAccountBalances['เงินสด'] ?? 0,
+      icon: Banknote,
+      hasCardStatus: false,
+    },
+  ];
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Real Account Balances Header Bar */}
-      <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 rounded-3xl text-white shadow-lg shadow-emerald-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
-            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
+    <div className="space-y-4">
+      {/* Real Account Balances Card */}
+      <Card className="overflow-hidden">
+        <div className="px-4 py-4 sm:px-6 sm:py-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-control bg-accent-soft border border-accent-border flex items-center justify-center text-accent-text shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-ink-muted">
+                เงินในบัญชีจริงและเงินสดทั้งหมด (Total Cash)
+              </p>
+              <p className="text-2xl sm:text-3xl font-bold text-ink tracking-tight tabular-nums mt-0.5">
+                {loading ? (
+                  <span className="inline-block w-36 h-8 bg-surface-subtle animate-pulse rounded-control align-middle" />
+                ) : (
+                  `฿${formatMoney(resolvedTotalCash)}`
+                )}
+              </p>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] sm:text-xs uppercase tracking-wider text-emerald-100 font-semibold block">
-              เงินในบัญชีจริงและเงินสดทั้งหมด (Total Cash)
-            </span>
-            <span className="text-xl sm:text-3xl font-extrabold tracking-tight">
-              ฿{formatMoney(resolvedTotalCash)}
-            </span>
-          </div>
+
+          <span className="text-xs text-ink-muted self-start sm:self-center">
+            สรุปยอดคงเหลือล่าสุดแยกตามบัญชี
+          </span>
         </div>
 
-        {/* Dynamic Breakdown by Bank / Account (2x2 on mobile, flex row on desktop) */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch gap-1.5 sm:gap-2 pt-1 sm:pt-0 w-full sm:w-auto">
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🔵 K PLUS</span>
-            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(kplusBal)}</span>
-            {renderCardStatus('K PLUS')}
-          </div>
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">🟡 Make</span>
-            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(makeBal)}</span>
-            {renderCardStatus('Make by KBank')}
-          </div>
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">📲 เป๋าตัง</span>
-            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(paotangBal)}</span>
-          </div>
-          <div className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
-            <span className="text-[9px] sm:text-[10px] text-emerald-100 font-medium block">💵 เงินสด</span>
-            <span className="text-xs sm:text-sm font-bold block">฿{formatMoney(cashBal)}</span>
-          </div>
-        </div>
-      </div>
+        {/* Account Breakdown Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 sm:p-5 bg-surface-subtle/40">
+          {accounts.map((acc) => {
+            const Icon = acc.icon;
+            return (
+              <div
+                key={acc.key}
+                className="p-3.5 rounded-control bg-surface border border-border flex flex-col"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-xs font-medium text-ink-secondary">{acc.label}</span>
+                    <Icon className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                  </div>
+                  <p className="text-base sm:text-lg font-semibold text-ink tabular-nums tracking-tight">
+                    {loading ? (
+                      <span className="inline-block w-24 h-6 bg-surface-subtle animate-pulse rounded-badge" />
+                    ) : (
+                      `฿${formatMoney(acc.balance)}`
+                    )}
+                  </p>
+                </div>
 
-      {/* 4 Period Metric Cards (2x2 on mobile, 4 in a row on desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {cards.map((card, idx) => {
+                {acc.hasCardStatus && renderCardStatus(acc.key)}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {adjustError && !pendingAdjust && (
+        <Alert variant="error" onDismiss={() => setAdjustError(null)}>
+          {adjustError}
+        </Alert>
+      )}
+
+      {/* 4 Period Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {metricCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
-              key={idx}
-              className={`p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border ${card.border} shadow-xs flex flex-col justify-between transition-all hover:shadow-md`}
-            >
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 line-clamp-1">{card.title}</span>
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl ${card.bg} ${card.text} flex items-center justify-center shrink-0`}>
-                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Card key={card.title} className="p-4 sm:p-5 flex flex-col justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-ink-secondary truncate">{card.title}</span>
+                <div
+                  className={`w-8 h-8 rounded-control border flex items-center justify-center shrink-0 ${card.iconBg}`}
+                >
+                  <Icon className="w-4 h-4" />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-baseline gap-1 mb-0.5 sm:mb-1">
-                  <span className={`text-base sm:text-2xl font-extrabold tracking-tight ${card.text}`}>
-                    {loading ? (
-                      <span className="inline-block w-16 sm:w-24 h-5 sm:h-7 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-lg" />
-                    ) : (
-                      `฿${card.amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    )}
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-medium">{card.badge}</span>
+                <p className={`text-lg sm:text-2xl font-bold tracking-tight tabular-nums ${card.amountClass}`}>
+                  {loading ? (
+                    <span className="inline-block w-20 sm:w-28 h-6 sm:h-7 bg-surface-subtle animate-pulse rounded-badge" />
+                  ) : (
+                    `${card.prefix}฿${formatMoney(card.amount)}`
+                  )}
+                </p>
+                <span className="text-[11px] text-ink-muted block mt-1">{card.caption}</span>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
+
+      {/* Balance Adjustment Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(pendingAdjust)}
+        onClose={() => {
+          setPendingAdjust(null);
+          setAdjustError(null);
+        }}
+        onConfirm={handleConfirmAdjust}
+        title="ยืนยันการปรับยอดบัญชี"
+        description={
+          pendingAdjust ? describeBalanceAdjustment(pendingAdjust.account, pendingAdjust.gap) : ''
+        }
+        detail="รายการนี้ไม่นับเป็นรายรับหรือรายจ่าย และสามารถลบออกได้ในหน้ารายการทั้งหมด"
+        error={adjustError}
+        confirmLabel="ยืนยันปรับยอด"
+        cancelLabel="ยกเลิก"
+        variant="primary"
+        loading={adjustingAccount !== null}
+        modalId="balance-adjustment-confirm"
+      />
     </div>
   );
 }

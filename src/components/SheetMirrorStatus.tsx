@@ -15,7 +15,11 @@ const REFRESH_MS = 60_000;
 
 function lastMirroredLabel(iso: string | null): string {
   if (!iso) return 'ยังไม่เคยส่ง';
-  return new Date(iso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /** Small mirror health indicator for the owner: last time the Sheet was updated, and a warning when it is not */
@@ -60,7 +64,7 @@ export default function SheetMirrorStatus() {
       <span
         title={warning}
         role="status"
-        className="flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 max-w-[12rem]"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control text-[11px] font-medium bg-warning-soft border border-warning-border text-warning max-w-[11rem] sm:max-w-[13rem]"
       >
         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
         <span className="hidden sm:inline truncate">{warning}</span>
@@ -73,7 +77,7 @@ export default function SheetMirrorStatus() {
   return (
     <span
       title={health.pending > 0 ? `กำลังส่งไป Google Sheet ${health.pending} รายการ` : 'Google Sheet เป็นปัจจุบัน'}
-      className="hidden sm:flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"
+      className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control text-xs text-ink-muted tabular-nums"
     >
       <Sheet className="w-3.5 h-3.5 shrink-0" />
       <span>{lastMirroredLabel(health.lastMirroredAt)}</span>
