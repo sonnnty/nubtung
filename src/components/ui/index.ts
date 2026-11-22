@@ -19,3 +19,4 @@ export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
 
 export { formatMoney, formatBaht } from './format';
+export { cn } from './cn';

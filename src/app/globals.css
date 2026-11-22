@@ -65,13 +65,13 @@
   --chart-axis: #5c667a;
 
   /* Radii */
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
-  --radius-badge: 0.375rem;
+  --nt-radius-card: 0.75rem;
+  --nt-radius-control: 0.5rem;
+  --nt-radius-badge: 0.375rem;
 
   /* Elevation (Flat, quiet shadows) */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 1px rgba(16, 24, 40, 0.02);
-  --shadow-popover: 0 10px 24px -6px rgba(16, 24, 40, 0.12), 0 4px 8px -4px rgba(16, 24, 40, 0.06);
+  --nt-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 1px rgba(16, 24, 40, 0.02);
+  --nt-shadow-popover: 0 10px 24px -6px rgba(16, 24, 40, 0.12), 0 4px 8px -4px rgba(16, 24, 40, 0.06);
 
   /* Focus Ring */
   --focus-ring: #1e3a5f;
@@ -138,8 +138,8 @@
   --chart-axis: #8a99ad;
 
   /* Elevation */
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-popover: 0 14px 32px rgba(0, 0, 0, 0.45);
+  --nt-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --nt-shadow-popover: 0 14px 32px rgba(0, 0, 0, 0.45);
 
   /* Focus Ring */
   --focus-ring: #8ab8e6;
@@ -184,13 +184,13 @@
   --color-warning-border: var(--warning-border);
 
   /* Radii */
-  --radius-card: var(--radius-card);
-  --radius-control: var(--radius-control);
-  --radius-badge: var(--radius-badge);
+  --radius-card: var(--nt-radius-card);
+  --radius-control: var(--nt-radius-control);
+  --radius-badge: var(--nt-radius-badge);
 
   /* Shadows */
-  --shadow-card: var(--shadow-card);
-  --shadow-popover: var(--shadow-popover);
+  --shadow-card: var(--nt-shadow-card);
+  --shadow-popover: var(--nt-shadow-popover);
 
   /* Fonts */
   --font-sans: var(--font-ibm-plex-sans), var(--font-ibm-plex-sans-thai), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

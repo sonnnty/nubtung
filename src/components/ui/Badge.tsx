@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from './cn';
 
 export type BadgeVariant = 'neutral' | 'accent' | 'income' | 'expense' | 'transfer' | 'warning';
 
@@ -18,7 +19,11 @@ const BADGE_CLASSES: Record<BadgeVariant, string> = {
 export function Badge({ variant = 'neutral', className = '', children, ...props }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-badge border text-[11px] font-medium leading-tight whitespace-nowrap ${BADGE_CLASSES[variant]} ${className}`}
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-badge border text-[11px] font-medium leading-tight whitespace-nowrap',
+        BADGE_CLASSES[variant],
+        className
+      )}
       {...props}
     >
       {children}

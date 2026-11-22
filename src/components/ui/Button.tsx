@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { cn } from './cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'icon';
@@ -33,7 +34,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         type={type}
-        className={`inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
+        className={cn(
+          'inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+          VARIANT_CLASSES[variant],
+          SIZE_CLASSES[size],
+          className
+        )}
         {...props}
       />
     );

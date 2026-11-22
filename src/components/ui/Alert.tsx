@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { cn } from './cn';
 
 export type AlertVariant = 'info' | 'warning' | 'error' | 'success';
 
@@ -48,7 +49,11 @@ export function Alert({
   return (
     <div
       role={role}
-      className={`p-3.5 sm:p-4 rounded-card border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm ${ALERT_CLASSES[variant]} ${className}`}
+      className={cn(
+        'p-3.5 sm:p-4 rounded-card border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm',
+        ALERT_CLASSES[variant],
+        className
+      )}
     >
       <div className="flex items-start gap-2.5 min-w-0">
         <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${ICON_CLASSES[variant]}`} />
