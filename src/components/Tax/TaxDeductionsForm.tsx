@@ -1015,6 +1015,7 @@ export default function TaxDeductionsForm({
         title="รายละเอียดใบเสร็จเงินกู้ ธอส. (GH Bank)"
         description={`ปีภาษี ${year} (พบทั้งหมด ${ghbReceipts.length} ใบเสร็จ)`}
         size="lg"
+        className="max-w-2xl"
         footer={
           <Button variant="secondary" onClick={closeGhbModal}>
             ปิดหน้าต่าง

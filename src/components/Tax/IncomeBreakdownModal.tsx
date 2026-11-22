@@ -148,11 +148,125 @@ export default function IncomeBreakdownModal({
         </div>
       }
       size="xl"
+      stickyHeader={
+        <>
+          {/* Real-time Summary KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="p-3 rounded-control bg-surface-subtle/50 border border-border flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] text-ink-muted block">ยอดรวมทั้งหมด</span>
+                <span className="text-base font-semibold text-ink tabular-nums">
+                  ฿{formatMoney(grossTotal)}
+                </span>
+              </div>
+              <Badge variant="neutral" className="tabular-nums">
+                {transactions.length} รายการ
+              </Badge>
+            </div>
+
+            <div className="p-3 rounded-control bg-income-soft/60 border border-income-border flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] text-income font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  รวมในภาษี (Active)
+                </span>
+                <span className="text-base font-semibold text-income tabular-nums">
+                  ฿{formatMoney(taxableAmount)}
+                </span>
+              </div>
+              <Badge variant="income" className="tabular-nums">
+                {taxableCount} รายการ
+              </Badge>
+            </div>
+
+            <div className="p-3 rounded-control bg-surface-subtle/50 border border-border flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] text-ink-muted font-medium flex items-center gap-1">
+                  <Ban className="w-3.5 h-3.5" />
+                  ยกเว้นภาษี (Exempt)
+                </span>
+                <span className="text-base font-semibold text-ink-secondary tabular-nums">
+                  ฿{formatMoney(excludedAmount)}
+                </span>
+              </div>
+              <Badge variant="neutral" className="tabular-nums">
+                {excludedCount} รายการ
+              </Badge>
+            </div>
+          </div>
+
+          {/* Search & Filter Chips */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                type="text"
+                aria-label="ค้นหารายการในหมวดนี้"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="ค้นหาตามบันทึก หมวดหมู่ หรือบัญชี..."
+                className="pl-9 pr-9 text-xs sm:text-sm"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-ink-muted hover:text-ink cursor-pointer"
+                  aria-label="ล้างคำค้นหา"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 bg-surface-subtle p-1 rounded-control border border-border shrink-0 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setFilterTab('ALL')}
+                aria-pressed={filterTab === 'ALL'}
+                className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
+                  filterTab === 'ALL'
+                    ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
+                    : 'text-ink-secondary hover:text-ink border border-transparent'
+                }`}
+              >
+                ทั้งหมด ({transactions.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterTab('TAXABLE')}
+                aria-pressed={filterTab === 'TAXABLE'}
+                className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
+                  filterTab === 'TAXABLE'
+                    ? 'bg-income-soft text-income font-semibold border border-income-border'
+                    : 'text-ink-secondary hover:text-ink border border-transparent'
+                }`}
+              >
+                รวมในภาษี ({taxableCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterTab('EXEMPT')}
+                aria-pressed={filterTab === 'EXEMPT'}
+                className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
+                  filterTab === 'EXEMPT'
+                    ? 'bg-surface text-ink font-semibold border border-border shadow-card'
+                    : 'text-ink-secondary hover:text-ink border border-transparent'
+                }`}
+              >
+                ยกเว้นภาษี ({excludedCount})
+              </button>
+            </div>
+          </div>
+        </>
+      }
       footer={
         <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-ink-muted">
             <Info className="w-4 h-4 shrink-0" />
-            <span>การเปิดหรือปิดรายการจะอัปเดตยอดคำนวณภาษีและเงินได้พึงประเมินโดยอัตโนมัติ</span>
+            <span>การเปิด/ปิดรายการจะอัปเดตยอดคำนวณภาษีและเงินได้พึงประเมินโดยอัตโนมัติ</span>
           </div>
           <Button variant="secondary" onClick={closeModal} className="shrink-0">
             ปิดหน้าต่าง
@@ -161,117 +275,6 @@ export default function IncomeBreakdownModal({
       }
     >
       <div className="space-y-4">
-        {/* Real-time Summary KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <div className="p-3 rounded-control bg-surface-subtle/50 border border-border flex items-center justify-between gap-2">
-            <div>
-              <span className="text-[11px] text-ink-muted block">ยอดรวมทั้งหมด</span>
-              <span className="text-base font-semibold text-ink tabular-nums">
-                ฿{formatMoney(grossTotal)}
-              </span>
-            </div>
-            <Badge variant="neutral" className="tabular-nums">
-              {transactions.length} รายการ
-            </Badge>
-          </div>
-
-          <div className="p-3 rounded-control bg-income-soft/60 border border-income-border flex items-center justify-between gap-2">
-            <div>
-              <span className="text-[11px] text-income font-medium flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                รวมในภาษี
-              </span>
-              <span className="text-base font-semibold text-income tabular-nums">
-                ฿{formatMoney(taxableAmount)}
-              </span>
-            </div>
-            <Badge variant="income" className="tabular-nums">
-              {taxableCount} รายการ
-            </Badge>
-          </div>
-
-          <div className="p-3 rounded-control bg-surface-subtle/50 border border-border flex items-center justify-between gap-2">
-            <div>
-              <span className="text-[11px] text-ink-muted font-medium flex items-center gap-1">
-                <Ban className="w-3.5 h-3.5" />
-                ยกเว้นภาษี
-              </span>
-              <span className="text-base font-semibold text-ink-secondary tabular-nums">
-                ฿{formatMoney(excludedAmount)}
-              </span>
-            </div>
-            <Badge variant="neutral" className="tabular-nums">
-              {excludedCount} รายการ
-            </Badge>
-          </div>
-        </div>
-
-        {/* Search & Filter Chips */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <Input
-              type="text"
-              aria-label="ค้นหารายการในหมวดนี้"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ค้นหาตามบันทึก หมวดหมู่ หรือบัญชี..."
-              className="pl-9 pr-9 text-xs sm:text-sm"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-ink-muted hover:text-ink cursor-pointer"
-                aria-label="ล้างคำค้นหา"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1 bg-surface-subtle p-1 rounded-control border border-border shrink-0 overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setFilterTab('ALL')}
-              aria-pressed={filterTab === 'ALL'}
-              className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
-                filterTab === 'ALL'
-                  ? 'bg-surface text-accent-text font-semibold border border-border shadow-card'
-                  : 'text-ink-secondary hover:text-ink border border-transparent'
-              }`}
-            >
-              ทั้งหมด ({transactions.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTab('TAXABLE')}
-              aria-pressed={filterTab === 'TAXABLE'}
-              className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
-                filterTab === 'TAXABLE'
-                  ? 'bg-income-soft text-income font-semibold border border-income-border'
-                  : 'text-ink-secondary hover:text-ink border border-transparent'
-              }`}
-            >
-              รวมในภาษี ({taxableCount})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTab('EXEMPT')}
-              aria-pressed={filterTab === 'EXEMPT'}
-              className={`min-h-8 px-3 py-1 rounded-badge text-xs font-medium whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
-                filterTab === 'EXEMPT'
-                  ? 'bg-surface text-ink font-semibold border border-border shadow-card'
-                  : 'text-ink-secondary hover:text-ink border border-transparent'
-              }`}
-            >
-              ยกเว้นภาษี ({excludedCount})
-            </button>
-          </div>
-        </div>
-
         {/* Transaction List */}
         {filteredTransactions.length === 0 ? (
           <div className="py-12 text-center space-y-2 border border-border rounded-control bg-surface-subtle/30">

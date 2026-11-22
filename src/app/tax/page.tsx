@@ -138,9 +138,9 @@ export default function TaxPage() {
   // Fetch tax data for the selected year
   useEffect(() => {
     let ignore = false;
-    isInitialLoadedRef.current = false;
 
     async function loadData() {
+      setError(null);
       try {
         const res = await fetch(`/api/tax?year=${selectedYear}`);
         let data: TaxApiResponse | null = null;
@@ -157,7 +157,6 @@ export default function TaxPage() {
           throw new Error(data?.error || `ไม่สามารถดึงข้อมูลภาษีได้ (HTTP ${res.status})`);
         }
 
-        setError(null);
         const fetchedSynced: IncomeBySection = data.syncedIncome || defaultIncome;
         setSyncedIncome(fetchedSynced);
 
@@ -207,6 +206,9 @@ export default function TaxPage() {
       }
     }
 
+    isInitialLoadedRef.current = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset auto-save badge before loading selected year
+    setAutoSaveStatus('idle');
     loadData();
 
     return () => {
@@ -218,6 +220,7 @@ export default function TaxPage() {
   useEffect(() => {
     if (!isInitialLoadedRef.current || loading) return;
 
+    setAutoSaveStatus('unsaved');
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
@@ -346,7 +349,6 @@ export default function TaxPage() {
         );
       }
 
-      setAutoSaveStatus('saved');
       showNotification('success', `บันทึกข้อมูลภาษีปี ${selectedYear} ลง Google Sheet สำเร็จแล้ว`);
     } catch (err: unknown) {
       const msg =
@@ -360,23 +362,19 @@ export default function TaxPage() {
   const handleIncomeChange = (key: keyof IncomeBySection, value: number) => {
     setIncome((prev) => ({ ...prev, [key]: value }));
     setIsManualOverride(true);
-    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
   };
 
   const handleDeductionChange = (key: keyof TaxDeductions, value: number) => {
     setDeductions((prev) => ({ ...prev, [key]: value }));
-    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
   };
 
   const handleWithholdingChange = (value: number) => {
     setWithholdingTax(value);
-    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
   };
 
   const handleResetSynced = () => {
     setIncome(syncedIncome);
     setIsManualOverride(false);
-    if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
     showNotification('info', 'รีเซ็ตข้อมูลรายได้กลับเป็นค่าที่คำนวณจากรายการธุรกรรมแล้ว');
   };
 
@@ -387,8 +385,6 @@ export default function TaxPage() {
   const handleYearChange = (year: number) => {
     if (saving || year === selectedYear) return;
     setLoading(true);
-    setError(null);
-    setAutoSaveStatus('idle');
     setSelectedYear(year);
   };
 
@@ -401,7 +397,6 @@ export default function TaxPage() {
         nextExcluded.add(txId);
       }
       setExcludedTransactionIds(nextExcluded);
-      if (isInitialLoadedRef.current) setAutoSaveStatus('unsaved');
 
       const txsToCategorize =
         rawYearTransactions.length > 0

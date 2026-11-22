@@ -55,32 +55,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/transactions');
-        const data = await readJson(res);
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch transactions');
-        }
-        if (!cancelled) {
-          setAllTransactions(data.transactions || []);
-          setOverallSummary(data.summary || null);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดข้อมูลรายการได้');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load via shared fetchData callback
+    fetchData();
+  }, [fetchData]);
 
   // Filter and sort transactions based on active Period Mode and selected Date (strictly latest first)
   const filteredTransactions = useMemo(() => {

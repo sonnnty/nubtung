@@ -39,32 +39,9 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/transactions');
-        const data = await readJson(res);
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch transactions');
-        }
-        if (!cancelled) {
-          setTransactions(data.transactions || []);
-          setLineAlerts(data.lineAlerts || []);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดรายการธุรกรรมได้');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load via shared fetchTransactions callback
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas transition-colors">
