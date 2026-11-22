@@ -13,81 +13,79 @@ interface MobileBottomNavProps {
 export default function MobileBottomNav({ onSyncComplete, onRefresh }: MobileBottomNavProps) {
   const pathname = usePathname();
 
+  const linkClass = (active: boolean) =>
+    `flex flex-col items-center justify-center gap-1 min-h-12 px-1 py-1.5 rounded-control transition-colors duration-150 ${
+      active
+        ? 'text-accent-text font-semibold'
+        : 'text-ink-muted hover:text-ink'
+    }`;
+
+  const iconWrapClass = (active: boolean) =>
+    `flex items-center justify-center w-8 h-7 rounded-badge transition-colors ${
+      active ? 'bg-accent-soft' : ''
+    }`;
+
   return (
-    <div
-      className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-1.5 sm:px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl transition-colors"
-      style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
+    <nav
+      aria-label="เมนูหลักมือถือ"
+      className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-surface border-t border-border px-2 pt-1 pb-[max(0.375rem,env(safe-area-inset-bottom))]"
     >
-      <div className="flex items-center justify-around max-w-md mx-auto">
-        {/* Dashboard */}
+      <div className="grid grid-cols-5 items-center max-w-md mx-auto">
         <Link
           href="/"
-          className={`flex flex-col items-center gap-1 py-1 px-1.5 sm:px-2 rounded-2xl transition-all ${
-            pathname === '/'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          aria-current={pathname === '/' ? 'page' : undefined}
+          className={linkClass(pathname === '/')}
         >
-          <div className={`p-1.5 rounded-xl ${pathname === '/' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-            <LayoutDashboard className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">ภาพรวม</span>
+          <span className={iconWrapClass(pathname === '/')}>
+            <LayoutDashboard className="w-4 h-4" />
+          </span>
+          <span className="text-[11px] leading-none">ภาพรวม</span>
         </Link>
 
-        {/* Transactions */}
         <Link
           href="/transactions"
-          className={`flex flex-col items-center gap-1 py-1 px-1.5 sm:px-2 rounded-2xl transition-all ${
-            pathname === '/transactions'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          aria-current={pathname === '/transactions' ? 'page' : undefined}
+          className={linkClass(pathname === '/transactions')}
         >
-          <div className={`p-1.5 rounded-xl ${pathname === '/transactions' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-            <ListOrdered className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">รายการ</span>
+          <span className={iconWrapClass(pathname === '/transactions')}>
+            <ListOrdered className="w-4 h-4" />
+          </span>
+          <span className="text-[11px] leading-none">รายการ</span>
         </Link>
 
-        {/* Quick Add Button */}
-        <div className="flex flex-col items-center">
-          <ManualTransactionModal onSuccess={() => {
-            if (onSyncComplete) onSyncComplete();
-            if (onRefresh) onRefresh();
-          }} isMobileFab={true} />
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-medium">บันทึก</span>
+        <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
+          <ManualTransactionModal
+            onSuccess={() => {
+              if (onSyncComplete) onSyncComplete();
+              if (onRefresh) onRefresh();
+            }}
+            isMobileFab={true}
+          />
+          <span className="text-[10px] text-ink-muted font-medium leading-none">บันทึก</span>
         </div>
 
-        {/* Tax */}
         <Link
           href="/tax"
-          className={`flex flex-col items-center gap-1 py-1 px-1.5 sm:px-2 rounded-2xl transition-all ${
-            pathname === '/tax'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          aria-current={pathname === '/tax' ? 'page' : undefined}
+          className={linkClass(pathname === '/tax')}
         >
-          <div className={`p-1.5 rounded-xl ${pathname === '/tax' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-            <Calculator className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">ภาษี</span>
+          <span className={iconWrapClass(pathname === '/tax')}>
+            <Calculator className="w-4 h-4" />
+          </span>
+          <span className="text-[11px] leading-none">ภาษี</span>
         </Link>
 
-        {/* Mortgage */}
         <Link
           href="/mortgage"
-          className={`flex flex-col items-center gap-1 py-1 px-1.5 sm:px-2 rounded-2xl transition-all ${
-            pathname === '/mortgage'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          aria-current={pathname === '/mortgage' ? 'page' : undefined}
+          className={linkClass(pathname === '/mortgage')}
         >
-          <div className={`p-1.5 rounded-xl ${pathname === '/mortgage' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-            <Home className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] tracking-tight">ผ่อนบ้าน</span>
+          <span className={iconWrapClass(pathname === '/mortgage')}>
+            <Home className="w-4 h-4" />
+          </span>
+          <span className="text-[11px] leading-none">ผ่อนบ้าน</span>
         </Link>
       </div>
-    </div>
+    </nav>
   );
 }
