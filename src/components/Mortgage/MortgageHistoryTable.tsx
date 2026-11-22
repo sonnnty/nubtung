@@ -46,6 +46,7 @@ export default function MortgageHistoryTable({
   const [selectedSource, setSelectedSource] = useState<'ALL' | 'EMAIL_SYNC' | 'MANUAL'>('ALL');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pendingDeletePayment, setPendingDeletePayment] = useState<MortgagePayment | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
   const [actionMessage, setActionMessage] = useState<{
@@ -84,6 +85,7 @@ export default function MortgageHistoryTable({
     const payment = pendingDeletePayment;
 
     setDeletingId(payment.id!);
+    setDeleteError(null);
     setActionMessage(null);
 
     try {
@@ -97,15 +99,11 @@ export default function MortgageHistoryTable({
       }
 
       setPendingDeletePayment(null);
-      setActionMessage({ type: 'success', text: 'ลบรายการชำระเรียบร้อยแล้ว' });
+      setActionMessage({ type: 'success', text: 'ลบรายการสำเร็จ' });
       setTimeout(() => setActionMessage(null), 3000);
       if (onRefresh) onRefresh();
     } catch (err: unknown) {
-      setPendingDeletePayment(null);
-      setActionMessage({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบ',
-      });
+      setDeleteError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบ');
     } finally {
       setDeletingId(null);
     }
@@ -241,7 +239,10 @@ export default function MortgageHistoryTable({
                         <Button
                           variant="secondary"
                           size="icon"
-                          onClick={() => setPendingDeletePayment(p)}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setPendingDeletePayment(p);
+                          }}
                           disabled={isDeleting}
                           title="ลบรายการ"
                           aria-label="ลบรายการชำระนี้"
@@ -356,7 +357,10 @@ export default function MortgageHistoryTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setPendingDeletePayment(p)}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setPendingDeletePayment(p);
+                            }}
                             disabled={isDeleting}
                             title="ลบรายการนี้"
                             aria-label="ลบรายการชำระนี้"
@@ -413,7 +417,10 @@ export default function MortgageHistoryTable({
       {/* Delete Payment Confirm Dialog */}
       <ConfirmDialog
         isOpen={Boolean(pendingDeletePayment)}
-        onClose={() => setPendingDeletePayment(null)}
+        onClose={() => {
+          setPendingDeletePayment(null);
+          setDeleteError(null);
+        }}
         onConfirm={handleConfirmDelete}
         title="ยืนยันการลบรายการผ่อนชำระ"
         description={
@@ -421,6 +428,7 @@ export default function MortgageHistoryTable({
             ? `คุณแน่ใจหรือไม่ว่าต้องการลบรายการชำระวันที่ ${pendingDeletePayment.paymentDate} ยอด ฿${formatMoney(pendingDeletePayment.totalPaid)}?`
             : ''
         }
+        error={deleteError}
         confirmLabel="ลบรายการ"
         cancelLabel="ยกเลิก"
         variant="destructive"

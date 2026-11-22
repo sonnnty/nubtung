@@ -25,12 +25,14 @@ export default function ManualPaymentModal({
   onSuccess,
   defaultAccountId = '011690010474',
 }: ManualPaymentModalProps) {
+  const [loading, setLoading] = useState(false);
   const { closeModal } = useHistoryModal({
     isOpen,
     onClose: () => {
       if (onClose) onClose();
     },
     modalId: 'mortgage-payment-modal',
+    enableEsc: !loading,
   });
 
   const [accountId, setAccountId] = useState(defaultAccountId);
@@ -42,7 +44,6 @@ export default function ManualPaymentModal({
   const [fee, setFee] = useState('0');
   const [remainingBalance, setRemainingBalance] = useState('');
 
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [prevDefaultAccountId, setPrevDefaultAccountId] = useState(defaultAccountId);
@@ -141,6 +142,7 @@ export default function ManualPaymentModal({
       title="บันทึกรายการผ่อนชำระด้วยตนเอง"
       description="เพิ่มข้อมูลการจ่ายเงินตามใบเสร็จรับเงิน ธอส. (กรณีไม่ได้ส่งเข้าอีเมลอัตโนมัติ)"
       size="lg"
+      disableClose={loading}
     >
       {error && (
         <div className="mb-4">

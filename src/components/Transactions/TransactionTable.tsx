@@ -62,7 +62,9 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
   // Confirm Dialogs & Inline Feedback
   const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDedupeOpen, setConfirmDedupeOpen] = useState(false);
+  const [dedupeError, setDedupeError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -74,22 +76,25 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
   // Quick Note Edit Modal (for Auto-sync transactions)
   const [editingNoteTx, setEditingNoteTx] = useState<Transaction | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const { closeModal: closeNoteEdit } = useHistoryModal({
     isOpen: Boolean(editingNoteTx),
     onClose: () => setEditingNoteTx(null),
     modalId: 'edit-note-tx',
+    enableEsc: !isSavingNote,
   });
   const [editNoteText, setEditNoteText] = useState('');
   const [editNoteCategory, setEditNoteCategory] = useState('');
-  const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
 
   // Full Edit Modal (for Manual transactions)
   const [editingManualTx, setEditingManualTx] = useState<Transaction | null>(null);
+  const [isSavingManual, setIsSavingManual] = useState(false);
   const { closeModal: closeManualEdit } = useHistoryModal({
     isOpen: Boolean(editingManualTx),
     onClose: () => setEditingManualTx(null),
     modalId: 'edit-manual-tx',
+    enableEsc: !isSavingManual,
   });
   const [manualType, setManualType] = useState<TransactionType>('EXPENSE');
   const [manualAmount, setManualAmount] = useState('');
@@ -98,7 +103,6 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
   const [manualDate, setManualDate] = useState('');
   const [manualTime, setManualTime] = useState('');
   const [manualNote, setManualNote] = useState('');
-  const [isSavingManual, setIsSavingManual] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
   // Filter and sort transactions (strictly latest first)
@@ -142,6 +146,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
     const tx = pendingDeleteTx;
 
     setDeletingId(tx.id);
+    setDeleteError(null);
     setActionMessage(null);
     try {
       const res = await fetch(`/api/transactions?id=${encodeURIComponent(tx.id)}`, {
@@ -155,11 +160,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       setActionMessage({ type: 'success', text: 'ลบรายการเรียบร้อยแล้ว' });
       if (onRefresh) onRefresh();
     } catch (err: unknown) {
-      setPendingDeleteTx(null);
-      setActionMessage({
-        type: 'error',
-        text: `ลบรายการไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`,
-      });
+      setDeleteError(`ลบรายการไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingId(null);
     }
@@ -264,6 +265,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
 
   const handleConfirmDeduplicate = async () => {
     setIsDeduplicating(true);
+    setDedupeError(null);
     setActionMessage(null);
     try {
       const res = await fetch('/api/transactions/deduplicate', { method: 'POST' });
@@ -276,11 +278,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       });
       if (onRefresh) onRefresh();
     } catch (err: unknown) {
-      setConfirmDedupeOpen(false);
-      setActionMessage({
-        type: 'error',
-        text: `เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : String(err)}`,
-      });
+      setDedupeError(`เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsDeduplicating(false);
     }
@@ -389,7 +387,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
             <Button
               variant="secondary"
               size="md"
-              onClick={() => setConfirmDedupeOpen(true)}
+              onClick={() => {
+                setDedupeError(null);
+                setConfirmDedupeOpen(true);
+              }}
               disabled={isDeduplicating || loading}
               title="ตรวจสอบและลบรายการที่ซ้ำกันใน Google Sheets"
               className="col-span-3 lg:col-span-1 text-xs whitespace-nowrap"
@@ -497,7 +498,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                         <Button
                           variant="secondary"
                           size="icon"
-                          onClick={() => setPendingDeleteTx(tx)}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setPendingDeleteTx(tx);
+                          }}
                           disabled={isDeleting}
                           title="ลบรายการ"
                           aria-label="ลบรายการ"
@@ -625,7 +629,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => setPendingDeleteTx(tx)}
+                              onClick={() => {
+                                setDeleteError(null);
+                                setPendingDeleteTx(tx);
+                              }}
                               disabled={isDeleting}
                               title="ลบรายการที่บันทึกเอง"
                               aria-label="ลบรายการที่บันทึกเอง"
@@ -716,6 +723,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
         title="แก้ไขรายการที่บันทึกเอง"
         description="แก้ไขข้อมูลได้ครบทุกช่อง และอัปเดตลง Google Sheet"
         size="md"
+        disableClose={isSavingManual}
       >
         <form onSubmit={handleSaveManual} className="space-y-4">
           {manualError && <Alert variant="error">{manualError}</Alert>}
@@ -849,13 +857,14 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       <Modal
         isOpen={Boolean(editingNoteTx)}
         onClose={closeNoteEdit}
-        title="เพิ่ม / แก้ไขรายละเอียดเพิ่มเติม"
+        title="เพิ่ม/แก้ไขรายละเอียดเพิ่มเติม"
         description={
           editingNoteTx
             ? `${editingNoteTx.date} ${editingNoteTx.time} · ฿${formatMoney(editingNoteTx.amount)} (${editingNoteTx.category})`
             : undefined
         }
         size="lg"
+        disableClose={isSavingNote}
       >
         <form onSubmit={handleSaveNote} className="space-y-4">
           {noteError && <Alert variant="error">{noteError}</Alert>}
@@ -907,7 +916,10 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       {/* Delete Manual Transaction Confirm Dialog */}
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteTx)}
-        onClose={() => setPendingDeleteTx(null)}
+        onClose={() => {
+          setPendingDeleteTx(null);
+          setDeleteError(null);
+        }}
         onConfirm={handleConfirmDelete}
         title="ยืนยันการลบรายการ"
         description={
@@ -915,6 +927,7 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
             ? `คุณต้องการลบรายการที่บันทึกเอง "${pendingDeleteTx.note || pendingDeleteTx.category}" จำนวน ฿${formatMoney(pendingDeleteTx.amount)} ใช่หรือไม่?`
             : ''
         }
+        error={deleteError}
         confirmLabel="ลบรายการ"
         cancelLabel="ยกเลิก"
         variant="destructive"
@@ -925,10 +938,14 @@ export default function TransactionTable({ transactions, loading, onRefresh }: T
       {/* Deduplicate Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDedupeOpen}
-        onClose={() => setConfirmDedupeOpen(false)}
+        onClose={() => {
+          setConfirmDedupeOpen(false);
+          setDedupeError(null);
+        }}
         onConfirm={handleConfirmDeduplicate}
         title="ยืนยันการลบรายการซ้ำ"
         description="คุณต้องการตรวจสอบและลบรายการที่ซ้ำกันใน Google Sheets ทั้งหมดใช่หรือไม่?"
+        error={dedupeError}
         confirmLabel="ยืนยันลบรายการซ้ำ"
         cancelLabel="ยกเลิก"
         variant="primary"

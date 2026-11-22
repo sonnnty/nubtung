@@ -46,12 +46,13 @@ export default function ManualTransactionModal({
   isMobileFab = false,
 }: ManualTransactionModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { closeModal } = useHistoryModal({
     isOpen,
     onClose: () => setIsOpen(false),
     modalId: 'manual-tx-modal',
+    enableEsc: !loading,
   });
-  const [loading, setLoading] = useState(false);
   const [uploadingSlip, setUploadingSlip] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,6 +189,7 @@ export default function ManualTransactionModal({
         onClose={closeModal}
         title={type === 'TRANSFER' ? 'โอนย้ายเงิน / จัดการเงินสด' : 'บันทึกรายการใหม่'}
         size="md"
+        disableClose={loading}
       >
         {error && (
           <div className="mb-4">

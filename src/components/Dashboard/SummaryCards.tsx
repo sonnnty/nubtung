@@ -123,7 +123,6 @@ export default function SummaryCards({
       await onBalanceAdjusted?.();
     } catch (err: unknown) {
       setAdjustError(`ปรับยอดไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
-      setPendingAdjust(null);
     } finally {
       setAdjustingAccount(null);
     }
@@ -200,7 +199,10 @@ export default function SummaryCards({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setPendingAdjust({ account, gap })}
+              onClick={() => {
+                setAdjustError(null);
+                setPendingAdjust({ account, gap });
+              }}
               disabled={adjustingAccount !== null}
               title={describeBalanceAdjustment(account, gap)}
               className="w-full text-[11px]"
@@ -302,7 +304,7 @@ export default function SummaryCards({
         </div>
       </Card>
 
-      {adjustError && (
+      {adjustError && !pendingAdjust && (
         <Alert variant="error" onDismiss={() => setAdjustError(null)}>
           {adjustError}
         </Alert>
@@ -341,13 +343,17 @@ export default function SummaryCards({
       {/* Balance Adjustment Confirm Dialog */}
       <ConfirmDialog
         isOpen={Boolean(pendingAdjust)}
-        onClose={() => setPendingAdjust(null)}
+        onClose={() => {
+          setPendingAdjust(null);
+          setAdjustError(null);
+        }}
         onConfirm={handleConfirmAdjust}
         title="ยืนยันการปรับยอดบัญชี"
         description={
           pendingAdjust ? describeBalanceAdjustment(pendingAdjust.account, pendingAdjust.gap) : ''
         }
         detail="รายการนี้ไม่นับเป็นรายรับหรือรายจ่าย และสามารถลบออกได้ในหน้ารายการทั้งหมด"
+        error={adjustError}
         confirmLabel="ยืนยันปรับยอด"
         cancelLabel="ยกเลิก"
         variant="primary"
